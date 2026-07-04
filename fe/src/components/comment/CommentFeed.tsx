@@ -24,7 +24,7 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
       return await getCommentsAction(postId, pageParam as Date | null);
     },
     initialPageParam: null as Date | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
   });
 
   const comments = data?.pages.flatMap(page => page.comments) || [];

@@ -14,8 +14,10 @@ import {
 import { createNewsAction } from "@/actions/news.actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function CreateNews() {
+  const queryClient = useQueryClient();
   const [content, setContent] = useState("");
   const [customUsername, setCustomUsername] = useState("Admin Team");
   const [customRole, setCustomRole] = useState("admin");
@@ -40,7 +42,7 @@ export function CreateNews() {
       setMediaUrl("");
       router.refresh();
       // Need a hard reload or refresh logic for feed
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
     } catch (error: any) {
       toast.error(error.message || "Failed to post news");
     } finally {

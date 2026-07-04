@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - BACKEND_API_URL=http://api:8080/api
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-supersecretpassword30charslong123}@postgres:5432/${DB_NAME:-media_prod}
       - REDIS_URL=redis://:supersecretredispass@redis:6379
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
@@ -51,8 +52,6 @@ services:
       dockerfile: Dockerfile
     container_name: media-api
     restart: unless-stopped
-    ports:
-      - "8080:8080"
     environment:
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-supersecretpassword30charslong123}@postgres:5432/${DB_NAME:-media_prod}
       - REDIS_URL=redis://:supersecretredispass@redis:6379

@@ -115,9 +115,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       toast.success("Post created successfully!");
       if (onSuccess) onSuccess();
       
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
     } catch (e) {
       console.error("Error creating post:", e);
       toast.error("Failed to create post. Please ensure your files are not too large.");

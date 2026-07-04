@@ -152,14 +152,14 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     setIsDeleting(true);
     try {
       await deletePostAction(post.id);
-      deletePost(post.id);
+      deletePost(post.id); // Zustand fallback
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
       toast.success("Post deleted successfully!");
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      setShowDeleteAlert(false);
     } catch (e) {
       console.error(e);
       toast.error("Failed to delete post. Please try again.");
+    } finally {
       setIsDeleting(false);
     }
   };

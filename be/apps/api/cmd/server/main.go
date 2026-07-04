@@ -3,8 +3,10 @@ package main
 import (
 	"log"
 
+	"media-api/internal/cache"
 	"media-api/internal/config"
 	"media-api/internal/database"
+	"media-api/internal/modules/post"
 	"media-api/internal/queue"
 	"media-api/internal/routes"
 )
@@ -19,9 +21,13 @@ func main() {
 
 	// 3. Connect to Redis
 	database.ConnectRedis(cfg.RedisURL)
+	cache.InitRedis(cfg.RedisURL)
 
 	// 4. Initialize Asynq Client
 	queue.InitClient(cfg.RedisURL)
+
+	// 4.5 Register Asynq Handlers
+	queue.RegisterHandler("post:update_comment_count", post.HandleUpdateCommentCount(database.DB))
 
 	// 5. Start Asynq Server (Worker) in a goroutine
 	go queue.StartServer(cfg.RedisURL)

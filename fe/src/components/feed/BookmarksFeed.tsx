@@ -20,7 +20,7 @@ export function BookmarksFeed({ initialData }: { initialData: { posts: PostWithR
       return getInfiniteBookmarkedPostsAction({ cursor: pageParam as any, limit: 10 });
     },
     initialPageParam: null as { createdAt: Date, id: string } | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     initialData: {
       pages: [initialData],
       pageParams: [null],

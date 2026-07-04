@@ -21,7 +21,7 @@ export function SearchFeed({ q, initialData }: { q: string; initialData: { posts
       return getSearchFeedAction({ q, cursor: pageParam as SearchCursor, limit: 10 });
     },
     initialPageParam: null as SearchCursor,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     initialData: {
       pages: [initialData],
       pageParams: [null as SearchCursor],

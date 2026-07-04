@@ -1,6 +1,6 @@
 import type { Adapter, AdapterUser, AdapterAccount, AdapterSession } from "next-auth/adapters"
 
-const API_URL = process.env.BACKEND_API_URL || "http://api:8080/api/auth/adapter"
+const API_URL = (process.env.BACKEND_API_URL || "http://api:8080/api") + "/auth/adapter"
 
 export function GoAdapter(): Adapter {
   return {

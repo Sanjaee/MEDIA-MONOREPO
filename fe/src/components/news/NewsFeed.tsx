@@ -21,7 +21,7 @@ export function NewsFeed({ initialData }: { initialData: { posts: any[], nextCur
       return getNewsFeedAction({ cursor: pageParam as NewsCursor, limit: 10 });
     },
     initialPageParam: null as NewsCursor,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     initialData: {
       pages: [initialData],
       pageParams: [null as NewsCursor],

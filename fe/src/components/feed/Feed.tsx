@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useEffect, useRef } from "react";
 import { PostWithRelations } from "@/store/usePostStore";
@@ -8,7 +8,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { getInfiniteFeedPostsAction } from "@/actions/post.actions";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
-export function Feed({ initialData }: { initialData: { posts: PostWithRelations[], nextCursor: number | null } }) {
+export function Feed({ initialData }: { initialData: { posts: PostWithRelations[], nextCursor: string | null } }) {
   const {
     data,
     fetchNextPage,
@@ -17,13 +17,13 @@ export function Feed({ initialData }: { initialData: { posts: PostWithRelations[
   } = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: async ({ pageParam }) => {
-      return getInfiniteFeedPostsAction({ page: pageParam as number, limit: 10 });
+      return getInfiniteFeedPostsAction({ cursor: pageParam as string | null, limit: 10 });
     },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     initialData: {
       pages: [initialData],
-      pageParams: [1],
+      pageParams: [null],
     },
     staleTime: Infinity, // Prevent background refetch on back navigation
   });

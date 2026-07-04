@@ -66,7 +66,7 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
       return await getRepliesAction(comment.id, pageParam as Date | null);
     },
     initialPageParam: null as Date | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     enabled: showReplies,
   });
 

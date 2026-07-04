@@ -5,6 +5,7 @@ import (
 	"gorm.io/gorm"
 
 	"media-api/internal/modules/auth"
+	"media-api/internal/modules/comment"
 	"media-api/internal/modules/post"
 )
 
@@ -14,7 +15,11 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	// Dependency Injection
 	postRepo := post.NewRepository(db)
 	postService := post.NewService(postRepo)
-	postHandler := post.NewHandler(postService)
+	postController := post.NewController(postService)
+
+	commentRepo := comment.NewRepository(db)
+	commentService := comment.NewService(commentRepo)
+	commentController := comment.NewController(commentService)
 
 	authRepo := auth.NewRepository(db)
 	authService := auth.NewService(authRepo)
@@ -35,8 +40,14 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 			})
 		})
 
-		// Post routes
-		api.GET("/posts", postHandler.GetPosts)
+		// Post and Feed routes
+		post.RegisterRoutes(api, postController)
+
+		// Comment routes
+		comment.RegisterRoutes(api, commentController)
+
+		// User routes
+		api.GET("/users/profile/:username", authHandler.GetUserProfileByUsername)
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")

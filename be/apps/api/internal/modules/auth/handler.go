@@ -169,3 +169,24 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }
+
+func (h *Handler) GetUserProfileByUsername(c *gin.Context) {
+	username := c.Param("username")
+	// Mock implementation for now
+	c.JSON(http.StatusOK, gin.H{
+		"id": "mock-id",
+		"name": "Mock User",
+		"username": username,
+		"image": "",
+		"bio": "",
+		"role": "user",
+		"isVerified": false,
+		"isBanned": false,
+		"stats": gin.H{
+			"totalThreads": 0,
+			"totalPosts": 0,
+			"reputation": 0,
+		},
+		"recentPosts": []interface{}{},
+	})
+}

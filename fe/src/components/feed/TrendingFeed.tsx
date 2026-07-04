@@ -21,7 +21,7 @@ export function TrendingFeed({ initialData }: { initialData: { posts: any[], nex
       return getTrendingFeedAction({ cursor: pageParam as TrendingCursor, limit: 10 });
     },
     initialPageParam: null as TrendingCursor,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     initialData: {
       pages: [initialData],
       pageParams: [null as TrendingCursor],

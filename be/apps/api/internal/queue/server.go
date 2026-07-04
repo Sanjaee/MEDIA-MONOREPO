@@ -33,11 +33,6 @@ func StartServer(redisUrl string) {
 		},
 	)
 
-	mux := asynq.NewServeMux()
-	// TODO: Register your task handlers here
-	// mux.HandleFunc("email:send", handlerSendEmail)
-	// mux.HandleFunc("image:process", handlerProcessImage)
-
 	log.Println("Starting Asynq worker server...")
 	if err := srv.Run(mux); err != nil {
 		log.Fatalf("could not run Asynq server: %v", err)

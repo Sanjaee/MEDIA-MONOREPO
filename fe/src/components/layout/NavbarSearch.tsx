@@ -64,7 +64,7 @@ export function NavbarSearch() {
                 <div className="px-3 py-2">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Posts</span>
                 </div>
-                {searchResults.map((result) => (
+                {searchResults.map((result: any) => (
                   <div 
                     key={result.id}
                     className="flex items-center gap-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition" 

@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"media-api/internal/modules/comment"
 	"media-api/internal/modules/interaction"
 	"media-api/internal/modules/monetization"
 	"media-api/internal/modules/news"
@@ -47,7 +48,7 @@ func Migrate(db *gorm.DB) {
 		&post.PostView{},
 
 		// Interaction
-		&interaction.Comment{},
+		&comment.Comment{},
 		&interaction.Like{},
 		&interaction.Bookmark{},
 
