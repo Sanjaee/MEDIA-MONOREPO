@@ -65,6 +65,14 @@ apps/
     │   │
     │   │     admin/
     │   │
+    │   │     monetization/
+    │   │     │
+    │   │     ├── handler.go
+    │   │     ├── service.go
+    │   │     ├── repository.go
+    │   │     ├── model.go
+    │   │     └── dto.go
+    │   │
     │   ├── worker/
     │   │
     │   │     image.go

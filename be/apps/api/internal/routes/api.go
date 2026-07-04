@@ -1,12 +1,15 @@
 package routes
 
 import (
+	"os"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"media-api/internal/modules/auth"
 	"media-api/internal/modules/comment"
 	"media-api/internal/modules/interaction"
+	"media-api/internal/modules/monetization"
 	"media-api/internal/modules/post"
 	"media-api/internal/websocket"
 )
@@ -34,6 +37,22 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 	interactionService := interaction.NewService(interactionRepo)
 	interactionController := interaction.NewController(interactionService)
 
+	monetizationRepo := monetization.NewRepository(db)
+	
+	plisioAPIKey := os.Getenv("PLISIO_API_KEY")
+	appURL := os.Getenv("NEXT_PUBLIC_APP_URL")
+	if appURL == "" {
+		appURL = "http://localhost:3000"
+	}
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		backendURL = "http://localhost:8080"
+	}
+	
+	monetizationService := monetization.NewService(monetizationRepo, db, plisioAPIKey, appURL, backendURL)
+
+	monetizationHandler := monetization.NewHandler(monetizationService)
+
 	// Health check route
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -57,6 +76,9 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 
 		// Interaction routes
 		interaction.RegisterRoutes(api, interactionController)
+
+		// Monetization routes
+		monetization.RegisterRoutes(api, monetizationHandler)
 
 		// User routes
 		api.GET("/users/profile/:username", authHandler.GetUserProfileByUsername)

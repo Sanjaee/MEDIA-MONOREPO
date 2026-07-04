@@ -13,6 +13,7 @@ type Transaction struct {
 	PlisioOrderID *string   `gorm:"type:varchar"`
 	PlisioTxnID   *string   `gorm:"type:varchar"`
 	PaymentMethod *string   `gorm:"type:varchar;default:'crypto'"`
+	InvoiceURL    *string   `gorm:"type:varchar"`
 	CreatedAt     time.Time `gorm:"autoCreateTime;type:timestamp"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime;type:timestamp"`
 }
