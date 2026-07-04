@@ -250,7 +250,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
                  size={18} 
                  className={isLiked ? "fill-red-500 text-red-500" : ""} 
                />
-               <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || "Like"}</span>
+               <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || 0}</span>
              </button>
              
              <button 
@@ -261,7 +261,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
                className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
              >
                <MessageCircle size={18} />
-               <span>{post.stats?.replies || "Comment"}</span>
+               <span>{post.stats?.replies || 0}</span>
              </button>
 
              <button 
@@ -272,7 +272,6 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
                  size={18} 
                  className={isBookmarked ? "fill-primary text-primary" : ""} 
                />
-               <span className={isBookmarked ? "text-primary" : ""}>Bookmark</span>
              </button>
 
              <div className="flex-1 flex justify-center items-center gap-2 py-1.5 text-[13px] font-medium cursor-default">
@@ -285,7 +284,6 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
                className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
              >
                <Share size={18} />
-               <span>Share</span>
              </button>
            </div>
         </div>

@@ -23,7 +23,7 @@ type Post struct {
 	HasBookmarked  bool       `gorm:"->;type:boolean" json:"hasBookmarked"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
-	Media          []Media    `gorm:"foreignKey:PostID" json:"media,omitempty"`
+	Media          []Media    `gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;" json:"media,omitempty"`
 }
 
 type Media struct {
