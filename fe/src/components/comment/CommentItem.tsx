@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Heart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatShortTime } from "@/utils/timeUtils";
+import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ interface CommentItemProps {
 export function CommentItem({ comment, postId, isReply = false, level = 0, autoExpand = false }: CommentItemProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [isReplying, setIsReplying] = useState(false);
   const [showReplies, setShowReplies] = useState(autoExpand);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
@@ -47,6 +49,29 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
       } else {
         queryClient.invalidateQueries({ queryKey: ["comments", postId] });
       }
+
+      // Sync React Query Feed Cache globally (Decrement comment count)
+      queryClient.setQueryData(['feed'], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((p: any) => {
+              if (p.id === postId) {
+                return {
+                  ...p,
+                  stats: { ...p.stats, replies: Math.max(0, (p.stats?.replies || 0) - 1) }
+                };
+              }
+              return p;
+            })
+          }))
+        };
+      });
+
+      // Invalidate Next.js Server Cache (Detail Page)
+      router.refresh();
     },
     onError: (e) => {
       console.error(e);

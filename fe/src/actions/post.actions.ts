@@ -26,6 +26,22 @@ async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
   return res.json();
 }
 
+function mapGoPostToNextPost(post: any) {
+  if (!post) return post;
+  return {
+    ...post,
+    hasLiked: post.hasLiked || false,
+    hasBookmarked: post.hasBookmarked || false,
+    stats: {
+      likes: post.likeCount || 0,
+      replies: post.commentCount || 0,
+      reposts: post.repostCount || 0,
+      bookmarks: post.bookmarkCount || 0,
+      views: post.viewCount || 0,
+    }
+  };
+}
+
 export async function createPostAction(input: CreatePostInput) {
   // In a real app, Cloudinary uploads could still happen here or be moved to Go.
   // For this migration, we send the payload directly to Go API.
@@ -43,7 +59,8 @@ export async function deletePostAction(postId: string) {
 
 export async function getPostById(postId: string) {
   try {
-    return await fetchFromGo(`/posts/${postId}`);
+    const post = await fetchFromGo(`/posts/${postId}`);
+    return mapGoPostToNextPost(post);
   } catch (e) {
     return null;
   }
@@ -65,7 +82,7 @@ export async function searchPostsAction(query: string, limit: number = 5) {
   if (!query || query.trim().length === 0) return [];
   
   const res = await fetchFromGo(`/feed/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-  return res.posts || [];
+  return (res.posts || []).map(mapGoPostToNextPost);
 }
 
 export async function getInfiniteBookmarkedPostsAction({
@@ -79,7 +96,9 @@ export async function getInfiniteBookmarkedPostsAction({
   if (cursor?.createdAt) query.append("cursor", cursor.createdAt.toISOString());
   query.append("limit", limit.toString());
 
-  return fetchFromGo(`/feed/bookmarks?${query.toString()}`);
+  const res = await fetchFromGo(`/feed/bookmarks?${query.toString()}`);
+  if (!res.posts) return { posts: [], nextCursor: res.nextCursor };
+  return { posts: res.posts.map(mapGoPostToNextPost), nextCursor: res.nextCursor };
 }
 
 export async function getInfiniteFeedPostsAction({
@@ -93,5 +112,7 @@ export async function getInfiniteFeedPostsAction({
   if (cursor) query.append("cursor", cursor);
   query.append("limit", limit.toString());
 
-  return fetchFromGo(`/feed/latest?${query.toString()}`);
+  const res = await fetchFromGo(`/feed/latest?${query.toString()}`);
+  if (!res.posts) return { posts: [], nextCursor: res.nextCursor };
+  return { posts: res.posts.map(mapGoPostToNextPost), nextCursor: res.nextCursor };
 }

@@ -19,6 +19,8 @@ type Post struct {
 	RepostCount    *int       `gorm:"type:integer;default:0" json:"repostCount"`
 	BookmarkCount  *int       `gorm:"type:integer;default:0" json:"bookmarkCount"`
 	ViewCount      *int       `gorm:"type:integer;default:0" json:"viewCount"`
+	HasLiked       bool       `gorm:"->;type:boolean" json:"hasLiked"`
+	HasBookmarked  bool       `gorm:"->;type:boolean" json:"hasBookmarked"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
 	Media          []Media    `gorm:"foreignKey:PostID" json:"media,omitempty"`

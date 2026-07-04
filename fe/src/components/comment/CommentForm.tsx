@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createCommentSchema, CreateCommentInput } from "@/lib/validations/comment";
 import { createCommentAction } from "@/actions/comment.actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +22,7 @@ interface CommentFormProps {
 export function CommentForm({ postId, parentCommentId, onSuccess, autoFocus }: CommentFormProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const form = useForm<CreateCommentInput>({
     resolver: zodResolver(createCommentSchema),
@@ -40,6 +42,30 @@ export function CommentForm({ postId, parentCommentId, onSuccess, autoFocus }: C
       } else {
         queryClient.invalidateQueries({ queryKey: ["comments", postId] });
       }
+
+      // Sync React Query Feed Cache globally (Increment comment count)
+      queryClient.setQueryData(['feed'], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((p: any) => {
+              if (p.id === postId) {
+                return {
+                  ...p,
+                  stats: { ...p.stats, replies: (p.stats?.replies || 0) + 1 }
+                };
+              }
+              return p;
+            })
+          }))
+        };
+      });
+
+      // Invalidate Next.js Server Cache (Detail Page)
+      router.refresh();
+
       onSuccess?.();
     },
     onError: (error) => {

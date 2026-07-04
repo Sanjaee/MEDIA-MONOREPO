@@ -28,7 +28,23 @@ export async function getLatestFeedAction({ cursor, limit = 10 }: { cursor?: { c
   if (cursor?.createdAt) query.append("cursor", cursor.createdAt);
   query.append("limit", limit.toString());
 
-  return fetchFromGo(`/feed/latest?${query.toString()}`);
+  const res = await fetchFromGo(`/feed/latest?${query.toString()}`);
+  if (!res.posts) return { posts: [], nextCursor: res.nextCursor };
+
+  const mappedPosts = res.posts.map((post: any) => ({
+    ...post,
+    hasLiked: post.hasLiked || false,
+    hasBookmarked: post.hasBookmarked || false,
+    stats: {
+      likes: post.likeCount || 0,
+      replies: post.commentCount || 0,
+      reposts: post.repostCount || 0,
+      bookmarks: post.bookmarkCount || 0,
+      views: post.viewCount || 0,
+    }
+  }));
+
+  return { posts: mappedPosts, nextCursor: res.nextCursor };
 }
 
 export async function getTrendingFeedAction({ cursor, limit = 10 }: { cursor?: { score: number; id: string } | null; limit?: number }) {

@@ -52,3 +52,25 @@ func Set(ctx context.Context, key string, value interface{}, expiration time.Dur
 func Delete(ctx context.Context, key string) error {
 	return RDB.Del(ctx, key).Err()
 }
+
+// DeletePattern removes all keys matching the given pattern using SCAN.
+func DeletePattern(ctx context.Context, pattern string) error {
+	var cursor uint64
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = RDB.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) > 0 {
+			if err := RDB.Del(ctx, keys...).Err(); err != nil {
+				return err
+			}
+		}
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
+}

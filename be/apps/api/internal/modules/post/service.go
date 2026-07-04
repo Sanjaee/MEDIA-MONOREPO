@@ -14,11 +14,11 @@ import (
 
 type Service interface {
 	CreatePost(ctx context.Context, post *Post) error
-	GetPostById(ctx context.Context, id string) (*Post, error)
+	GetPostById(ctx context.Context, userID, id string) (*Post, error)
 	UpdatePost(ctx context.Context, postID, userID string, content *string) error
 	DeletePost(ctx context.Context, postID, userID string) error
-	GetLatestFeed(ctx context.Context, cursor string, limit int) ([]Post, error)
-	GetTrendingFeed(ctx context.Context, cursorScore float64, cursorID string, limit int) ([]Post, error)
+	GetLatestFeed(ctx context.Context, userID string, cursor string, limit int) ([]Post, error)
+	GetTrendingFeed(ctx context.Context, userID string, cursorScore float64, cursorID string, limit int) ([]Post, error)
 }
 
 type service struct {
@@ -44,17 +44,17 @@ func (s *service) CreatePost(ctx context.Context, post *Post) error {
 	}
 
 	// Invalidate feed cache
-	cache.Delete(ctx, "feed:latest")
+	cache.DeletePattern(ctx, "feed:*")
 	
 	return nil
 }
 
-func (s *service) GetPostById(ctx context.Context, id string) (*Post, error) {
-	return s.repository.FindByID(id)
+func (s *service) GetPostById(ctx context.Context, userID, id string) (*Post, error) {
+	return s.repository.FindByID(userID, id)
 }
 
 func (s *service) UpdatePost(ctx context.Context, postID, userID string, content *string) error {
-	post, err := s.repository.FindByID(postID)
+	post, err := s.repository.FindByID(userID, postID)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (s *service) UpdatePost(ctx context.Context, postID, userID string, content
 }
 
 func (s *service) DeletePost(ctx context.Context, postID, userID string) error {
-	post, err := s.repository.FindByID(postID)
+	post, err := s.repository.FindByID(userID, postID)
 	if err != nil {
 		return err
 	}
@@ -86,13 +86,13 @@ func (s *service) DeletePost(ctx context.Context, postID, userID string) error {
 	err = s.repository.Delete(postID)
 	if err == nil {
 		cache.Delete(ctx, fmt.Sprintf("post:%s", postID))
-		cache.Delete(ctx, "feed:latest")
+		cache.DeletePattern(ctx, "feed:*")
 	}
 	return err
 }
 
-func (s *service) GetLatestFeed(ctx context.Context, cursor string, limit int) ([]Post, error) {
-	cacheKey := fmt.Sprintf("feed:latest:c%s:l%d", cursor, limit)
+func (s *service) GetLatestFeed(ctx context.Context, userID string, cursor string, limit int) ([]Post, error) {
+	cacheKey := fmt.Sprintf("feed:latest:u%s:c%s:l%d", userID, cursor, limit)
 	var posts []Post
 
 	// Try get from Redis
@@ -102,7 +102,7 @@ func (s *service) GetLatestFeed(ctx context.Context, cursor string, limit int) (
 	}
 
 	// Cache Miss, get from Repository
-	posts, err = s.repository.GetLatestFeed(cursor, limit)
+	posts, err = s.repository.GetLatestFeed(userID, cursor, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +113,8 @@ func (s *service) GetLatestFeed(ctx context.Context, cursor string, limit int) (
 	return posts, nil
 }
 
-func (s *service) GetTrendingFeed(ctx context.Context, cursorScore float64, cursorID string, limit int) ([]Post, error) {
-	cacheKey := fmt.Sprintf("feed:trending:cs%f:ci%s:l%d", cursorScore, cursorID, limit)
+func (s *service) GetTrendingFeed(ctx context.Context, userID string, cursorScore float64, cursorID string, limit int) ([]Post, error) {
+	cacheKey := fmt.Sprintf("feed:trending:u%s:cs%f:ci%s:l%d", userID, cursorScore, cursorID, limit)
 	var posts []Post
 
 	err := cache.Get(ctx, cacheKey, &posts)
@@ -122,7 +122,7 @@ func (s *service) GetTrendingFeed(ctx context.Context, cursorScore float64, curs
 		return posts, nil
 	}
 
-	posts, err = s.repository.GetTrendingFeed(cursorScore, cursorID, limit)
+	posts, err = s.repository.GetTrendingFeed(userID, cursorScore, cursorID, limit)
 	if err != nil {
 		return nil, err
 	}

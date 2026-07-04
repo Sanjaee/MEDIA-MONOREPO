@@ -23,7 +23,13 @@ func (c *Controller) GetLatestFeed(ctx *gin.Context) {
 	limitStr := ctx.DefaultQuery("limit", "10")
 	limit, _ := strconv.Atoi(limitStr)
 
-	posts, err := c.service.GetLatestFeed(ctx.Request.Context(), cursor, limit)
+	authHeader := ctx.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	}
+
+	posts, err := c.service.GetLatestFeed(ctx.Request.Context(), userID, cursor, limit)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -79,7 +85,14 @@ func (c *Controller) CreatePost(ctx *gin.Context) {
 // GetPostById handles GET /api/posts/:id
 func (c *Controller) GetPostById(ctx *gin.Context) {
 	postID := ctx.Param("id")
-	post, err := c.service.GetPostById(ctx.Request.Context(), postID)
+
+	authHeader := ctx.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	}
+
+	post, err := c.service.GetPostById(ctx.Request.Context(), userID, postID)
 	if err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
 		return
@@ -91,8 +104,11 @@ func (c *Controller) GetPostById(ctx *gin.Context) {
 // UpdatePost handles PUT /api/posts/:id
 func (c *Controller) UpdatePost(ctx *gin.Context) {
 	postID := ctx.Param("id")
-	// For example purposes, assuming auth middleware sets "userID" in gin context
-	userID := ctx.GetString("userID") 
+	authHeader := ctx.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	}
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -118,7 +134,11 @@ func (c *Controller) UpdatePost(ctx *gin.Context) {
 // DeletePost handles DELETE /api/posts/:id
 func (c *Controller) DeletePost(ctx *gin.Context) {
 	postID := ctx.Param("id")
-	userID := ctx.GetString("userID")
+	authHeader := ctx.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	}
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -126,12 +146,14 @@ func (c *Controller) DeletePost(ctx *gin.Context) {
 
 	err := c.service.DeletePost(ctx.Request.Context(), postID, userID)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
 }
+
+
 
 // RegisterRoutes registers HTTP routes for post module
 func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
@@ -152,7 +174,8 @@ func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 		postRoutes.GET("/:id", controller.GetPostById)
 		postRoutes.PUT("/:id", controller.UpdatePost)
 		postRoutes.DELETE("/:id", controller.DeletePost)
-		// postRoutes.POST("/:id/like", controller.ToggleLike)
 		// postRoutes.POST("/:id/bookmark", controller.ToggleBookmark)
 	}
 }
+
+

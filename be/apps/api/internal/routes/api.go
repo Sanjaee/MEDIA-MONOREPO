@@ -6,6 +6,7 @@ import (
 
 	"media-api/internal/modules/auth"
 	"media-api/internal/modules/comment"
+	"media-api/internal/modules/interaction"
 	"media-api/internal/modules/post"
 )
 
@@ -24,6 +25,10 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 	authRepo := auth.NewRepository(db)
 	authService := auth.NewService(authRepo)
 	authHandler := auth.NewHandler(authService)
+
+	interactionRepo := interaction.NewRepository(db)
+	interactionService := interaction.NewService(interactionRepo)
+	interactionController := interaction.NewController(interactionService)
 
 	// Health check route
 	r.GET("/health", func(c *gin.Context) {
@@ -45,6 +50,9 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 
 		// Comment routes
 		comment.RegisterRoutes(api, commentController)
+
+		// Interaction routes
+		interaction.RegisterRoutes(api, interactionController)
 
 		// User routes
 		api.GET("/users/profile/:username", authHandler.GetUserProfileByUsername)

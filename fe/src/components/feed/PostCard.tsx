@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { getCloudinaryUrl } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { deletePostAction, toggleLikeAction, toggleBookmarkAction } from "@/actions/post.actions";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CommentForm } from "@/components/comment/CommentForm";
 import { CommentFeed } from "@/components/comment/CommentFeed";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
@@ -61,6 +61,17 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [isBookmarked, setIsBookmarked] = useState(post.hasBookmarked ?? false);
   const [isBookmarking, setIsBookmarking] = useState(false);
 
+  // Sync local state if parent passes new props (e.g. from background refetch)
+  useEffect(() => {
+    setIsLiked(initialPost.hasLiked ?? false);
+    setLikeCount(initialPost.stats?.likes ?? 0);
+    setIsBookmarked(initialPost.hasBookmarked ?? false);
+    setPost(initialPost);
+  }, [initialPost]);
+
+  const clickCountRef = useRef(0);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const { ref, inView } = useInView({
     threshold: 0.5,
     triggerOnce: true,
@@ -80,30 +91,74 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     return () => clearTimeout(timeout);
   }, [inView, session?.user, post.id, post.author.id]);
 
-  const handleLike = async () => {
+  const handleLike = () => {
     if (!session?.user) {
       toast.error("Please login to like posts");
       return;
     }
-    if (isLiking) return;
 
-    setIsLiking(true);
     const prevLiked = isLiked;
-    const prevCount = likeCount;
+    const prevCount = Math.max(0, likeCount);
 
+    // Optimistic UI updates instantly
     setIsLiked(!prevLiked);
-    setLikeCount(prevCount + (prevLiked ? -1 : 1));
+    setLikeCount(Math.max(0, prevCount + (prevLiked ? -1 : 1)));
 
-    try {
-      const result = await toggleLikeAction(post.id);
-      setIsLiked(result.liked);
-    } catch (e) {
-      setIsLiked(prevLiked);
-      setLikeCount(prevCount);
-      toast.error("Failed to like post");
-    } finally {
-      setIsLiking(false);
+    // Track clicks for debounce (Anti-Spam)
+    clickCountRef.current += 1;
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
     }
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      const clicks = clickCountRef.current;
+      clickCountRef.current = 0; // reset for next batch
+
+      // Only send to backend if there's a net change (odd number of clicks)
+      if (clicks % 2 !== 0) {
+        setIsLiking(true);
+        try {
+          const result = await toggleLikeAction(post.id);
+          // Sync with real exact data from backend
+          if (result && typeof result.likeCount === 'number') {
+            setIsLiked(result.isLiked || false);
+            setLikeCount(Math.max(0, result.likeCount));
+            
+            // Sync React Query Feed Cache globally
+            queryClient.setQueryData(['feed'], (oldData: any) => {
+              if (!oldData || !oldData.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                  ...page,
+                  posts: page.posts.map((p: any) => {
+                    if (p.id === post.id) {
+                      return {
+                        ...p,
+                        hasLiked: result.isLiked,
+                        stats: { ...p.stats, likes: result.likeCount }
+                      };
+                    }
+                    return p;
+                  })
+                }))
+              };
+            });
+            
+            // Force Next.js to invalidate Server Components (Detail Page)
+            router.refresh();
+          }
+        } catch (e) {
+          // Revert to known previous state on error
+          setIsLiked(prevLiked);
+          setLikeCount(prevCount);
+          toast.error("Failed to like post");
+        } finally {
+          setIsLiking(false);
+        }
+      }
+    }, 500); // 500ms debounce
   };
 
   const handleBookmark = async () => {
@@ -121,6 +176,25 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     try {
       const result = await toggleBookmarkAction(post.id);
       setIsBookmarked(result.bookmarked);
+      
+      // Sync React Query Cache for Bookmarks too
+      queryClient.setQueryData(['feed'], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((p: any) => {
+              if (p.id === post.id) {
+                return { ...p, hasBookmarked: result.bookmarked };
+              }
+              return p;
+            })
+          }))
+        };
+      });
+      router.refresh();
+
       if (result.bookmarked) {
         toast.success("Post bookmarked!");
       } else {
@@ -151,8 +225,21 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await deletePostAction(post.id);
+      // Optimistically update React Query cache for instant UI feedback
+      queryClient.setQueryData(['feed'], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.filter((p: any) => p.id !== post.id)
+          }))
+        };
+      });
       deletePost(post.id); // Zustand fallback
+
+      await deletePostAction(post.id);
+      
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       toast.success("Post deleted successfully!");
       setShowDeleteAlert(false);
@@ -348,7 +435,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               size={18} 
               className={isLiked ? "fill-red-500 text-red-500" : ""} 
             />
-            <span className={isLiked ? "text-red-500" : ""}>{likeCount || "Like"}</span>
+            <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || "Like"}</span>
           </button>
           
           <button 
