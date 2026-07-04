@@ -2,6 +2,7 @@ package post
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -60,21 +61,46 @@ func (c *Controller) CreatePost(ctx *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Content string `json:"content"`
-	}
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	form, err := ctx.MultipartForm()
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid form data", "details": err.Error()})
 		return
+	}
+
+	contentVals := form.Value["content"]
+	var contentStr string
+	if len(contentVals) > 0 {
+		contentStr = contentVals[0]
+	}
+	var contentPtr *string
+	if contentStr != "" {
+		contentPtr = &contentStr
 	}
 
 	post := &Post{
 		ID:       uuid.New().String(),
 		AuthorID: userID,
-		Content:  &req.Content,
+		Content:  contentPtr,
 	}
 
-	if err := c.service.CreatePost(ctx.Request.Context(), post); err != nil {
+	// Get uploaded files
+	files := form.File["media"]
+	var tempFiles []string
+	for _, file := range files {
+		// Save file to temp directory
+		tempFilePath := os.TempDir() + "/" + uuid.New().String() + "_" + file.Filename
+		if err := ctx.SaveUploadedFile(file, tempFilePath); err == nil {
+			tempFiles = append(tempFiles, tempFilePath)
+		}
+	}
+
+	visibility := "public"
+	if len(tempFiles) > 0 {
+		visibility = "processing"
+	}
+	post.Visibility = &visibility
+
+	if err := c.service.CreatePost(ctx.Request.Context(), post, tempFiles); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

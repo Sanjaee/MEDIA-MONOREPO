@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Notification = {
   title: string;
@@ -23,6 +24,7 @@ const WebSocketContext = createContext<WebSocketContextType | undefined>(undefin
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
+  const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -67,6 +69,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           toast(payload.title, {
             description: payload.message,
           });
+
+          // Invalidate query to refetch feed when a post with media finishes uploading
+          if (payload.title === "Post Uploaded") {
+            queryClient.invalidateQueries({ queryKey: ["feed"] });
+          }
         }
       } catch (err) {
         console.error("Failed to parse websocket message", err);

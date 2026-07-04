@@ -11,6 +11,9 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	Port        string
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
 }
 
 func LoadConfig() *Config {
@@ -34,10 +37,17 @@ func LoadConfig() *Config {
 	if port == "" {
 		port = "8080"
 	}
+	
+	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
+	apiKey := os.Getenv("CLOUDINARY_API_KEY")
+	apiSecret := os.Getenv("CLOUDINARY_API_SECRET")
 
 	return &Config{
 		DatabaseURL: dbUrl,
 		RedisURL:    redisUrl,
 		Port:        port,
+		CloudinaryCloudName: cloudName,
+		CloudinaryAPIKey:    apiKey,
+		CloudinaryAPISecret: apiSecret,
 	}
 }

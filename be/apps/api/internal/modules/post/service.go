@@ -14,7 +14,7 @@ import (
 )
 
 type Service interface {
-	CreatePost(ctx context.Context, post *Post) error
+	CreatePost(ctx context.Context, post *Post, tempFiles []string) error
 	GetPostById(ctx context.Context, userID, id string) (*Post, error)
 	UpdatePost(ctx context.Context, postID, userID string, content *string) error
 	DeletePost(ctx context.Context, postID, userID string) error
@@ -31,7 +31,7 @@ func NewService(repository Repository, hub *websocket.Hub) *service {
 	return &service{repository, hub}
 }
 
-func (s *service) CreatePost(ctx context.Context, post *Post) error {
+func (s *service) CreatePost(ctx context.Context, post *Post, tempFiles []string) error {
 	err := s.repository.Create(post)
 	if err != nil {
 		return err
@@ -39,8 +39,11 @@ func (s *service) CreatePost(ctx context.Context, post *Post) error {
 
 	// Trigger background task using asynq (General Queue pattern)
 	if queue.Client != nil {
-		payload, _ := json.Marshal(map[string]string{"post_id": post.ID})
-		task := asynq.NewTask("post:created", payload)
+		payload, _ := json.Marshal(map[string]interface{}{
+			"post_id":    post.ID,
+			"temp_files": tempFiles,
+		})
+		task := asynq.NewTask("media:process", payload)
 		// enqueue task
 		queue.Client.Enqueue(task)
 	}
@@ -49,7 +52,10 @@ func (s *service) CreatePost(ctx context.Context, post *Post) error {
 	cache.DeletePattern(ctx, "feed:*")
 	
 	// Send real-time WebSocket notification to the author
-	if s.hub != nil {
+	// Wait, we should NOT send "Post Created" immediately if there's media.
+	// Actually, the background worker will send it when media is processed.
+	// We can send a "Processing Media" notification, or let the UI handle it.
+	if len(tempFiles) == 0 && s.hub != nil {
 		notificationPayload, _ := json.Marshal(map[string]interface{}{
 			"title":   "Post Created",
 			"message": "Your post has been successfully created!",

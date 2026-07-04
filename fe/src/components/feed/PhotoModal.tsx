@@ -4,13 +4,16 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { PostWithRelations } from "@/store/usePostStore";
-import { X, MessageCircle, Repeat2, Heart, BarChart2, Bookmark, Share, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { X, MessageCircle, Repeat2, Heart, BarChart2, Bookmark, Share, ChevronLeft, ChevronRight, Copy, ThumbsUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getCloudinaryUrl } from "@/lib/utils";
 import { CommentFeed } from "@/components/comment/CommentFeed";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toggleLikeAction, toggleBookmarkAction } from "@/actions/post.actions";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +65,95 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
   const photoUrl = post.media?.find(m => m.id === photoId)?.url;
 
   if (!photoUrl) return null;
+
+  const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  
+  const [isLiked, setIsLiked] = useState(post.hasLiked ?? false);
+  const [likeCount, setLikeCount] = useState(post.stats?.likes ?? 0);
+  const [isLiking, setIsLiking] = useState(false);
+
+  const [isBookmarked, setIsBookmarked] = useState(post.hasBookmarked ?? false);
+  const [isBookmarking, setIsBookmarking] = useState(false);
+
+  const clickCountRef = useRef(0);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync state if post prop changes
+  useEffect(() => {
+    setIsLiked(post.hasLiked ?? false);
+    setLikeCount(post.stats?.likes ?? 0);
+    setIsBookmarked(post.hasBookmarked ?? false);
+  }, [post]);
+
+  const handleLike = () => {
+    if (!session?.user) {
+      toast.error("Please login to like posts");
+      return;
+    }
+
+    const prevLiked = isLiked;
+    const prevCount = Math.max(0, likeCount);
+
+    setIsLiked(!prevLiked);
+    setLikeCount(Math.max(0, prevCount + (prevLiked ? -1 : 1)));
+
+    clickCountRef.current += 1;
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      const clicks = clickCountRef.current;
+      clickCountRef.current = 0;
+
+      if (clicks % 2 !== 0) {
+        setIsLiking(true);
+        try {
+          const result = await toggleLikeAction(post.id);
+          if (result && typeof result.likeCount === 'number') {
+            setIsLiked(result.isLiked || false);
+            setLikeCount(Math.max(0, result.likeCount));
+            queryClient.invalidateQueries({ queryKey: ['feed'] });
+            router.refresh();
+          }
+        } catch (e) {
+          setIsLiked(prevLiked);
+          setLikeCount(prevCount);
+          toast.error("Failed to like post");
+        } finally {
+          setIsLiking(false);
+        }
+      }
+    }, 500);
+  };
+
+  const handleBookmark = async () => {
+    if (!session?.user) {
+      toast.error("Please login to bookmark posts");
+      return;
+    }
+    if (isBookmarking) return;
+
+    setIsBookmarking(true);
+    const prevBookmarked = isBookmarked;
+    setIsBookmarked(!prevBookmarked);
+
+    try {
+      const result = await toggleBookmarkAction(post.id);
+      setIsBookmarked(result.bookmarked);
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      router.refresh();
+      if (result.bookmarked) {
+        toast.success("Post bookmarked!");
+      } else {
+        toast.success("Post removed from bookmarks.");
+      }
+    } catch (e) {
+      setIsBookmarked(prevBookmarked);
+      toast.error("Failed to bookmark post");
+    } finally {
+      setIsBookmarking(false);
+    }
+  };
 
   const handleShare = () => {
     setShowShareDialog(true);
@@ -150,24 +242,50 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
            </div>
 
            <div className="flex justify-between items-center mt-4 pt-4 border-t text-muted-foreground">
-             {/* Stats here */}
-             <button className="flex items-center gap-1 text-[13px] hover:text-blue-500 transition-colors group">
-               <div className="p-2 rounded-full group-hover:bg-blue-500/10"><MessageCircle size={18} /></div>
-               <span>{post.stats.replies}</span>
+             <button 
+               onClick={handleLike}
+               className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
+             >
+               <ThumbsUp 
+                 size={18} 
+                 className={isLiked ? "fill-red-500 text-red-500" : ""} 
+               />
+               <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || "Like"}</span>
              </button>
-             <button className="flex items-center gap-1 text-[13px] hover:text-green-500 transition-colors group">
-               <div className="p-2 rounded-full group-hover:bg-green-500/10"><Repeat2 size={18} /></div>
-               <span>{post.stats.reposts}</span>
+             
+             <button 
+               onClick={() => {
+                  const input = document.querySelector('input[name="content"], textarea[name="content"]') as HTMLInputElement | null;
+                  if (input) input.focus();
+               }}
+               className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
+             >
+               <MessageCircle size={18} />
+               <span>{post.stats?.replies || "Comment"}</span>
              </button>
-             <button className="flex items-center gap-1 text-[13px] hover:text-pink-500 transition-colors group">
-               <div className="p-2 rounded-full group-hover:bg-pink-500/10"><Heart size={18} /></div>
-               <span>{post.stats.likes > 1000 ? `${(post.stats.likes / 1000).toFixed(1)}K` : post.stats.likes}</span>
+
+             <button 
+               onClick={handleBookmark}
+               className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
+             >
+               <Bookmark 
+                 size={18} 
+                 className={isBookmarked ? "fill-primary text-primary" : ""} 
+               />
+               <span className={isBookmarked ? "text-primary" : ""}>Bookmark</span>
              </button>
-             <button className="flex items-center gap-1 text-[13px] hover:text-blue-500 transition-colors group">
-               <div className="p-2 rounded-full group-hover:bg-blue-500/10"><BarChart2 size={18} /></div>
-             </button>
-             <button onClick={handleShare} className="flex items-center gap-1 text-[13px] hover:text-blue-500 transition-colors group">
-               <div className="p-2 rounded-full group-hover:bg-blue-500/10"><Share size={18} /></div>
+
+             <div className="flex-1 flex justify-center items-center gap-2 py-1.5 text-[13px] font-medium cursor-default">
+               <BarChart2 size={18} />
+               <span>{post.stats?.views || 0}</span>
+             </div>
+
+             <button 
+               onClick={handleShare}
+               className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
+             >
+               <Share size={18} />
+               <span>Share</span>
              </button>
            </div>
         </div>

@@ -84,38 +84,48 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
     
     setIsSubmitting(true);
     try {
-      // 1. Compress images and convert to base64
-      const mediaBase64 = [];
+      // Create FormData instead of compressing locally
+      const formData = new FormData();
+      formData.append("content", content);
+      
       for (const file of selectedFiles) {
-        if (file.type.startsWith('image/')) {
-          const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true
-          };
-          const compressedFile = await imageCompression(file, options);
-          const base64 = await fileToBase64(compressedFile);
-          mediaBase64.push(base64);
-        } else {
-          // Send video as is (note: Vercel might limit large video uploads via Server Actions)
-          const base64 = await fileToBase64(file);
-          mediaBase64.push(base64);
-        }
+        formData.append("media", file);
       }
 
-      // 2. Create post via Server Action
-      const newPost = await createPostAction({
-        content,
-        mediaBase64,
+      // Use client-side fetch to our Next.js API route proxy 
+      // This avoids Next.js Server Action FormData bugs with files
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        body: formData,
       });
       
-      addPost(newPost);
+      if (!res.ok) {
+        throw new Error(`Failed to create post: ${res.statusText}`);
+      }
+
+      const newPost = await res.json();
+      
+      // Jika tidak ada media, post bisa langsung dimunculkan di UI
+      // Tapi jika ada media, kita tidak memasukkannya ke state addPost() 
+      // karena kita menunggu notifikasi WebSocket dari background worker.
+      if (selectedFiles.length === 0) {
+        addPost(newPost);
+      }
+      
       setContent("");
       setSelectedFiles([]);
-      toast.success("Post created successfully!");
+      
+      if (selectedFiles.length > 0) {
+        toast.success("Uploading media... Your post will appear shortly!");
+      } else {
+        toast.success("Post created successfully!");
+      }
+
       if (onSuccess) onSuccess();
       
-      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      if (selectedFiles.length === 0) {
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
+      }
     } catch (e) {
       console.error("Error creating post:", e);
       toast.error("Failed to create post. Please ensure your files are not too large.");

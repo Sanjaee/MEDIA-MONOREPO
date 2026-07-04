@@ -11,12 +11,11 @@ import (
 	"media-api/internal/websocket"
 )
 
-func SetupRouter(db *gorm.DB) *gin.Engine {
+func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 	r := gin.Default()
 
-	// Initialize WebSocket Hub
-	hub := websocket.NewHub()
-	go hub.Run()
+	// Hub is now passed from main.go
+
 
 	// Dependency Injection
 	postRepo := post.NewRepository(db)

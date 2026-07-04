@@ -42,13 +42,38 @@ function mapGoPostToNextPost(post: any) {
   };
 }
 
-export async function createPostAction(input: CreatePostInput) {
-  // In a real app, Cloudinary uploads could still happen here or be moved to Go.
-  // For this migration, we send the payload directly to Go API.
-  return fetchFromGo('/posts', {
+export async function createPostAction(formData: FormData) {
+  const session = await auth();
+  const token = session?.user?.id;
+
+  const newFormData = new FormData();
+  
+  const content = formData.get("content");
+  if (content) {
+    newFormData.append("content", content);
+  }
+  
+  const mediaFiles = formData.getAll("media");
+  for (const file of mediaFiles) {
+    newFormData.append("media", file);
+  }
+
+  const res = await fetch(`${API_URL}/posts`, {
     method: 'POST',
-    body: JSON.stringify(input)
+    body: newFormData,
+    headers: {
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    },
+    cache: "no-store"
   });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("API Response:", res.status, errorText);
+    throw new Error(`Failed to create post: ${res.statusText}. ${errorText}`);
+  }
+
+  return res.json();
 }
 
 export async function deletePostAction(postId: string) {
