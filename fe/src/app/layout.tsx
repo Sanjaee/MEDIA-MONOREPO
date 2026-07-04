@@ -8,6 +8,7 @@ import { LeftSidebar } from "@/components/layout/LeftSidebar";
 import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SidebarLayout } from "@/components/layout/SidebarLayout";
 import { Toaster } from "@/components/ui/sonner";
+import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,17 +45,19 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <SessionProvider>
           <QueryProvider>
-            <TooltipProvider>
-              <SidebarLayout 
-                navbar={<Navbar />}
-                leftSidebar={<LeftSidebar />} 
-                rightSidebar={<RightSidebar />}
-              >
-                {children}
-              </SidebarLayout>
-              {modal}
-              <Toaster />
-            </TooltipProvider>
+            <WebSocketProvider>
+              <TooltipProvider>
+                <SidebarLayout 
+                  navbar={<Navbar />}
+                  leftSidebar={<LeftSidebar />} 
+                  rightSidebar={<RightSidebar />}
+                >
+                  {children}
+                </SidebarLayout>
+                {modal}
+                <Toaster />
+              </TooltipProvider>
+            </WebSocketProvider>
           </QueryProvider>
         </SessionProvider>
       </body>

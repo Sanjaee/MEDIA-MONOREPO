@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { SignInButton } from "@/components/auth/SignInButton"
 import { UserDropdown } from "@/components/auth/UserDropdown"
 import { NavbarSearch } from "@/components/layout/NavbarSearch"
+import { NotificationDropdown } from "@/components/layout/NotificationDropdown"
 import { CreatePostModal } from "@/components/feed/CreatePostModal"
 
 export async function Navbar() {
@@ -25,7 +26,10 @@ export async function Navbar() {
         
         <div className="flex items-center justify-end gap-3 md:gap-4 min-w-fit">
           {session?.user ? (
-            <UserDropdown user={session.user} />
+            <>
+              <NotificationDropdown />
+              <UserDropdown user={session.user} />
+            </>
           ) : (
             <SignInButton />
           )}

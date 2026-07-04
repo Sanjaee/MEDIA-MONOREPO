@@ -8,14 +8,19 @@ import (
 	"media-api/internal/modules/comment"
 	"media-api/internal/modules/interaction"
 	"media-api/internal/modules/post"
+	"media-api/internal/websocket"
 )
 
 func SetupRouter(db *gorm.DB) *gin.Engine {
 	r := gin.Default()
 
+	// Initialize WebSocket Hub
+	hub := websocket.NewHub()
+	go hub.Run()
+
 	// Dependency Injection
 	postRepo := post.NewRepository(db)
-	postService := post.NewService(postRepo)
+	postService := post.NewService(postRepo, hub)
 	postController := post.NewController(postService)
 
 	commentRepo := comment.NewRepository(db)
@@ -73,6 +78,11 @@ func SetupRouter(db *gorm.DB) *gin.Engine {
 			adapter.PUT("/session/:sessionToken", authHandler.UpdateSession)
 			adapter.DELETE("/session/:sessionToken", authHandler.DeleteSession)
 		}
+
+		// WebSocket Route
+		api.GET("/ws", func(c *gin.Context) {
+			websocket.ServeWs(hub, c)
+		})
 	}
 
 	return r

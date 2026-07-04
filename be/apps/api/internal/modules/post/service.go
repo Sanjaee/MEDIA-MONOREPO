@@ -10,6 +10,7 @@ import (
 	"media-api/internal/queue"
 	"github.com/hibiken/asynq"
 	"encoding/json"
+	"media-api/internal/websocket"
 )
 
 type Service interface {
@@ -23,10 +24,11 @@ type Service interface {
 
 type service struct {
 	repository Repository
+	hub        *websocket.Hub
 }
 
-func NewService(repository Repository) *service {
-	return &service{repository}
+func NewService(repository Repository, hub *websocket.Hub) *service {
+	return &service{repository, hub}
 }
 
 func (s *service) CreatePost(ctx context.Context, post *Post) error {
@@ -46,6 +48,20 @@ func (s *service) CreatePost(ctx context.Context, post *Post) error {
 	// Invalidate feed cache
 	cache.DeletePattern(ctx, "feed:*")
 	
+	// Send real-time WebSocket notification to the author
+	if s.hub != nil {
+		notificationPayload, _ := json.Marshal(map[string]interface{}{
+			"title":   "Post Created",
+			"message": "Your post has been successfully created!",
+			"postId":  post.ID,
+		})
+		s.hub.SendToUser <- &websocket.MessagePayload{
+			UserID:  post.AuthorID,
+			Type:    "NOTIFICATION",
+			Payload: notificationPayload,
+		}
+	}
+
 	return nil
 }
 
