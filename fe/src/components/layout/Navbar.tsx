@@ -19,9 +19,11 @@ export async function Navbar() {
           </Link>
         </div>
         
-        <div className="hidden md:flex flex-1 max-w-2xl mx-4 items-center gap-2">
+        <div className="flex flex-1 max-w-2xl mx-2 md:mx-4 items-center gap-2">
           <NavbarSearch />
-          {session?.user && <CreatePostModal />}
+          <div className="hidden md:block">
+            {session?.user && <CreatePostModal />}
+          </div>
         </div>
         
         <div className="flex items-center justify-end gap-3 md:gap-4 min-w-fit">
