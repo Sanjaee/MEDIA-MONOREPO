@@ -24,6 +24,7 @@ type Service interface {
 	GetSessionAndUser(sessionToken string) (*user.Session, *user.User, error)
 	UpdateSession(s *user.Session) (*user.Session, error)
 	DeleteSession(sessionToken string) error
+	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 }
 
 type service struct {
@@ -135,6 +136,10 @@ func (s *service) UpdateSession(session *user.Session) (*user.Session, error) {
 
 func (s *service) DeleteSession(sessionToken string) error {
 	return s.repo.DeleteSession(sessionToken)
+}
+
+func (s *service) GetUserProfileByUsername(username string) (map[string]interface{}, error) {
+	return s.repo.GetUserProfileByUsername(username)
 }
 
 func cleanString(input string) string {

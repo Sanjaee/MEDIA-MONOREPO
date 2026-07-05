@@ -42,12 +42,6 @@ export default async function UserProfilePage({ params }: PageProps) {
         <span className="font-semibold text-white">Profile of {user.name}</span>
       </div>
 
-      {/* Megaphone Notice */}
-      <div className="mt-4 bg-[#1b1b1b] border border-[#333] p-3 text-xs flex items-center gap-2 text-[#cccccc] shadow-sm">
-        <Megaphone size={16} className="text-white" />
-        <span className="font-semibold text-white">RaidForums Active Mirror, domain issues.</span>
-      </div>
-
       {/* Profile Header Banner */}
       <div className="w-full bg-[#21425e] border border-[#333] p-4 flex gap-4 mt-4 shadow-sm">
         <div className="shrink-0">
@@ -82,18 +76,20 @@ export default async function UserProfilePage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Banned Notice Box (Static mockup as requested) */}
-      <fieldset className="mt-4 border border-[#cc0000] p-3 text-xs shadow-sm">
-        <legend className="text-white font-bold px-1 ml-2 text-sm">This forum account is currently banned.</legend>
-        <div className="flex flex-col gap-1.5 mt-1">
-          <div className="text-[#cccccc] italic">
-            Ban Reason: Potential Bot
+      {/* Banned Notice Box */}
+      {user.isBanned && (
+        <fieldset className="mt-4 border border-[#cc0000] p-3 text-xs shadow-sm">
+          <legend className="text-white font-bold px-1 ml-2 text-sm">This forum account is currently banned.</legend>
+          <div className="flex flex-col gap-1.5 mt-1">
+            <div className="text-[#cccccc] italic">
+              Ban Reason: Potential Bot
+            </div>
+            <div className="text-white">
+              <span className="font-bold">Banned By:</span> Admin — <span className="font-bold">Ban Length:</span> Permanent (N/A remaining)
+            </div>
           </div>
-          <div className="text-white">
-            <span className="font-bold">Banned By:</span> BurpingJimmy_Bot — <span className="font-bold">Ban Length:</span> Permanent (N/A remaining)
-          </div>
-        </div>
-      </fieldset>
+        </fieldset>
+      )}
 
       {/* Main 3 Columns */}
       <div className="flex flex-col md:flex-row gap-2 mt-4">
@@ -117,7 +113,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
             <div>
               <div className="text-[#888] mb-0.5">Time Spent Online:</div>
-              <div className="text-[#ccc]">4 Weeks, 1 Day</div>
+              <div className="text-[#ccc]">Active recently</div>
             </div>
 
             <div>
@@ -138,12 +134,12 @@ export default async function UserProfilePage({ params }: PageProps) {
           <div className="p-4 flex flex-col gap-5 text-xs">
             <div>
               <div className="text-[#888] mb-0.5">Total Threads:</div>
-              <div className="text-[#ccc]">{user.stats.totalThreads} <span className="text-[#888]">(0.01 threads per day | 0 percent of total threads)</span></div>
+              <div className="text-[#ccc]">{user.stats.totalThreads} <span className="text-[#888]"></span></div>
             </div>
 
             <div>
               <div className="text-[#888] mb-0.5">Total Posts:</div>
-              <div className="text-[#ccc]">{user.stats.totalPosts} <span className="text-[#888]">(0.01 posts per day | 0 percent of total posts)</span></div>
+              <div className="text-[#ccc]">{user.stats.totalPosts} <span className="text-[#888]"></span></div>
             </div>
 
             <div>
@@ -183,7 +179,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                     </div>
                     <div className="text-[#888] text-[10px] mt-0.5 flex items-center gap-1">
                       <span>{new Date(post.createdAt).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' })} at {new Date(post.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
-                      <span>💬 {Math.floor(Math.random() * 300)}</span>
+                      <span>💬 {post.stats?.replies || 0}</span>
                     </div>
                   </div>
                 ))

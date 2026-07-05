@@ -11,6 +11,7 @@ import (
 
 type Repository interface {
 	ToggleLike(ctx context.Context, userID, postID string) (bool, int, error)
+	ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error)
 }
 
 type repository struct {
@@ -70,4 +71,55 @@ func (r *repository) ToggleLike(ctx context.Context, userID, postID string) (boo
 	})
 
 	return isLiked, newCount, err
+}
+
+func (r *repository) ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error) {
+	var isBookmarked bool
+	var newCount int
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var bookmark Bookmark
+		err := tx.Where("user_id = ? AND post_id = ?", userID, postID).First(&bookmark).Error
+
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Bookmark does not exist, so we CREATE it and increment post bookmark count
+			newBookmark := Bookmark{
+				ID:     uuid.New().String(),
+				UserID: userID,
+				PostID: postID,
+			}
+			isBookmarked = true
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&newBookmark).Error; err != nil {
+				return err
+			}
+
+		} else {
+			// Bookmark exists, so we DELETE it
+			isBookmarked = false
+			if err := tx.Where("user_id = ? AND post_id = ?", userID, postID).Delete(&Bookmark{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Recalculate Post bookmark count EXACTLY from bookmarks table
+		if err := tx.Exec("UPDATE posts SET bookmark_count = (SELECT COUNT(*) FROM bookmarks WHERE post_id = posts.id) WHERE id = ?", postID).Error; err != nil {
+			return err
+		}
+
+		// Fetch latest count
+		var post struct {
+			BookmarkCount int
+		}
+		if err := tx.Table("posts").Select("bookmark_count").Where("id = ?", postID).Scan(&post).Error; err == nil {
+			newCount = post.BookmarkCount
+		}
+
+		return nil
+	})
+
+	return isBookmarked, newCount, err
 }

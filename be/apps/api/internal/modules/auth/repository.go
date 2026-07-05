@@ -23,6 +23,7 @@ type Repository interface {
 	DeleteSession(sessionToken string) error
 	
 	CheckUsernameExists(username string) (bool, error)
+	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 }
 
 type repository struct {
@@ -120,4 +121,61 @@ func (r *repository) CheckUsernameExists(username string) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *repository) GetUserProfileByUsername(username string) (map[string]interface{}, error) {
+	var u user.User
+	err := r.db.Where("username = ?", username).First(&u).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var totalThreads int64
+	r.db.Table("posts").Where("author_id = ?", u.ID).Count(&totalThreads)
+
+	var totalPosts int64
+	r.db.Table("comments").Where("author_id = ?", u.ID).Count(&totalPosts)
+
+	var reputation int64
+	r.db.Table("likes").Joins("JOIN posts ON posts.id = likes.post_id").Where("posts.author_id = ?", u.ID).Count(&reputation)
+
+	var recentPosts []map[string]interface{}
+	r.db.Table("posts").Select("id, content, created_at, comment_count").Where("author_id = ?", u.ID).Order("created_at desc").Limit(5).Find(&recentPosts)
+    
+	var formattedRecentPosts []map[string]interface{}
+	for _, p := range recentPosts {
+		formattedRecentPosts = append(formattedRecentPosts, map[string]interface{}{
+			"id":        p["id"],
+			"content":   p["content"],
+			"createdAt": p["created_at"],
+			"stats": map[string]interface{}{
+				"replies": p["comment_count"],
+			},
+		})
+	}
+
+	profile := map[string]interface{}{
+		"id":          u.ID,
+		"name":        u.Name,
+		"username":    u.Username,
+		"image":       u.Image,
+		"bio":         u.Bio,
+		"role":        u.Role,
+		"isVerified":  u.IsVerified,
+		"isBanned":    u.IsBanned,
+		"bannedUntil": u.BannedUntil,
+		"banReason":   u.BanReason,
+		"createdAt":   u.CreatedAt,
+		"stats": map[string]interface{}{
+			"totalThreads": totalThreads,
+			"totalPosts":   totalPosts,
+			"reputation":   reputation,
+		},
+		"recentPosts": formattedRecentPosts,
+	}
+
+	return profile, nil
 }

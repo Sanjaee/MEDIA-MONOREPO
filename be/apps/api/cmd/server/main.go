@@ -45,6 +45,7 @@ func main() {
 
 	// 4.5 Register Asynq Handlers
 	queue.RegisterHandler("media:process", post.HandleMediaProcess(database.DB, hub, cld))
+	queue.RegisterHandler("post:update_comment_count", post.HandleUpdateCommentCount(database.DB))
 
 	// 5. Start Asynq Server (Worker) in a goroutine
 	go queue.StartServer(cfg.RedisURL)

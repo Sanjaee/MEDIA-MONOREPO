@@ -172,21 +172,16 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 
 func (h *Handler) GetUserProfileByUsername(c *gin.Context) {
 	username := c.Param("username")
-	// Mock implementation for now
-	c.JSON(http.StatusOK, gin.H{
-		"id": "mock-id",
-		"name": "Mock User",
-		"username": username,
-		"image": "",
-		"bio": "",
-		"role": "user",
-		"isVerified": false,
-		"isBanned": false,
-		"stats": gin.H{
-			"totalThreads": 0,
-			"totalPosts": 0,
-			"reputation": 0,
-		},
-		"recentPosts": []interface{}{},
-	})
+	
+	profile, err := h.service.GetUserProfileByUsername(username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if profile == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, profile)
 }

@@ -369,19 +369,19 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
 
         {/* Media */}
         {post.media && post.media.length > 0 && (
-          <div className={`mt-3 rounded-2xl overflow-hidden border ${
-            post.media.length === 1 ? 'flex justify-center bg-black/5 dark:bg-white/5' : 'grid grid-cols-2 gap-0.5 bg-muted'
+          <div className={`mt-3 -mx-4 sm:mx-0 rounded-none sm:rounded-2xl overflow-hidden border-y sm:border ${
+            post.media.length === 1 ? 'block bg-black/5 dark:bg-white/5' : 'grid grid-cols-2 gap-0.5 bg-muted'
           }`}>
             {post.media.map((media) => {
               const isVideo = media.type === 'video';
               const mediaContent = (
-                <div className={`relative flex justify-center items-center w-full ${post.media.length > 1 ? 'aspect-square sm:aspect-[4/3]' : ''}`}>
+                <div className={`relative w-full ${post.media.length > 1 ? 'flex justify-center items-center aspect-square sm:aspect-[4/3]' : 'block'}`}>
                   {isVideo ? (
                     <video
                       src={media.url}
                       controls
                       playsInline
-                      className={post.media.length === 1 ? 'max-w-full max-h-[80vh] object-contain' : 'w-full h-full absolute inset-0 object-cover bg-black'}
+                      className={post.media.length === 1 ? 'w-full h-auto block' : 'w-full h-full absolute inset-0 object-cover bg-black'}
                       poster={media.thumbnailUrl || undefined}
                     />
                   ) : post.media.length === 1 ? (
@@ -390,7 +390,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
                       alt="Post media" 
                       width={media.width || 1200}
                       height={media.height || 800}
-                      className="max-w-full w-auto h-auto max-h-[80vh] object-contain"
+                      className="w-full h-auto block"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
                       priority={priority}
                     />

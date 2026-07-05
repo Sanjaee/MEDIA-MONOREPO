@@ -108,3 +108,27 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, cld *cloudinary.Cloudin
 		return nil
 	}
 }
+
+func HandleUpdateCommentCount(db *gorm.DB) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		var payload struct {
+			PostID string `json:"post_id"`
+		}
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			return fmt.Errorf("json.Unmarshal failed: %v", err)
+		}
+
+		// Count all comments for this post
+		var count int64
+		if err := db.Table("comments").Where("post_id = ?", payload.PostID).Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to count comments: %v", err)
+		}
+
+		// Update the post's comment_count
+		if err := db.Model(&Post{}).Where("id = ?", payload.PostID).Update("comment_count", count).Error; err != nil {
+			return fmt.Errorf("failed to update comment_count: %v", err)
+		}
+
+		return nil
+	}
+}
