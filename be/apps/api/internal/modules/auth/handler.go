@@ -185,3 +185,19 @@ func (h *Handler) GetUserProfileByUsername(c *gin.Context) {
 
 	c.JSON(http.StatusOK, profile)
 }
+
+func (h *Handler) SearchUsers(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusOK, []user.User{})
+		return
+	}
+
+	users, err := h.service.SearchUsers(query, 20)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}

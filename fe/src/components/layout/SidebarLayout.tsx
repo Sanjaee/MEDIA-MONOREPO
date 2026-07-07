@@ -13,12 +13,23 @@ export function SidebarLayout({ navbar, leftSidebar, rightSidebar, children }: S
   const pathname = usePathname();
 
   // Show sidebars and navbar only on these main app routes
-  const mainRoutes = ["/", "/trending", "/search", "/notifications", "/messages", "/settings", "/bookmarks", "/news"];
+  const mainRoutes = ["/", "/trending", "/search", "/notifications", "/settings", "/bookmarks", "/news"];
   const isPostDetail = pathname.includes("/status/");
   const showSidebars = mainRoutes.includes(pathname) || isPostDetail;
 
   if (pathname === "/premium" || pathname.startsWith("/admin")) {
     return <>{children}</>;
+  }
+
+  if (pathname === "/messages") {
+    return (
+      <div className="flex flex-col min-h-screen bg-black">
+        {navbar}
+        <div className="flex w-full max-w-7xl mx-auto justify-center flex-1 h-[calc(100vh-56px)] overflow-hidden border-x border-gray-800">
+          {children}
+        </div>
+      </div>
+    );
   }
 
   if (!showSidebars) {

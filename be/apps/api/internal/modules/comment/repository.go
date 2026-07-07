@@ -13,6 +13,8 @@ type Repository interface {
 	GetCommentsByPostID(postID string, cursor string, limit int) ([]Comment, error)
 	GetRepliesByCommentID(parentID string, cursor string, limit int) ([]Comment, error)
 	IncrementReplyCount(parentID string, step int) error
+	GetPostAuthorID(postID string) (string, error)
+	GetCommentAuthorID(commentID string) (string, error)
 }
 
 type repository struct {
@@ -80,4 +82,16 @@ func (r *repository) GetRepliesByCommentID(parentID string, cursor string, limit
 
 func (r *repository) IncrementReplyCount(parentID string, step int) error {
 	return r.db.Model(&Comment{}).Where("id = ?", parentID).Update("reply_count", gorm.Expr("reply_count + ?", step)).Error
+}
+
+func (r *repository) GetPostAuthorID(postID string) (string, error) {
+	var authorID string
+	err := r.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error
+	return authorID, err
+}
+
+func (r *repository) GetCommentAuthorID(commentID string) (string, error) {
+	var authorID string
+	err := r.db.Table("comments").Select("author_id").Where("id = ?", commentID).Scan(&authorID).Error
+	return authorID, err
 }

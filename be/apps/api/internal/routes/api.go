@@ -7,9 +7,11 @@ import (
 	"gorm.io/gorm"
 
 	"media-api/internal/modules/auth"
+	"media-api/internal/modules/chat"
 	"media-api/internal/modules/comment"
 	"media-api/internal/modules/interaction"
 	"media-api/internal/modules/monetization"
+	"media-api/internal/modules/notification"
 	"media-api/internal/modules/post"
 	"media-api/internal/websocket"
 )
@@ -20,13 +22,16 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 	// Hub is now passed from main.go
 
 
-	// Dependency Injection
+	notificationRepo := notification.NewRepository(db)
+	notificationService := notification.NewService(notificationRepo)
+	notificationHandler := notification.NewHandler(notificationService)
+
 	postRepo := post.NewRepository(db)
 	postService := post.NewService(postRepo, hub)
 	postController := post.NewController(postService)
 
 	commentRepo := comment.NewRepository(db)
-	commentService := comment.NewService(commentRepo)
+	commentService := comment.NewService(commentRepo, notificationService)
 	commentController := comment.NewController(commentService)
 
 	authRepo := auth.NewRepository(db)
@@ -34,8 +39,12 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 	authHandler := auth.NewHandler(authService)
 
 	interactionRepo := interaction.NewRepository(db)
-	interactionService := interaction.NewService(interactionRepo)
+	interactionService := interaction.NewService(interactionRepo, notificationService)
 	interactionController := interaction.NewController(interactionService)
+
+	chatRepo := chat.NewRepository(db)
+	chatService := chat.NewService(chatRepo)
+	chatHandler := chat.NewHandler(chatService)
 
 	monetizationRepo := monetization.NewRepository(db)
 	
@@ -80,8 +89,15 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 		// Monetization routes
 		monetization.RegisterRoutes(api, monetizationHandler)
 
+		// Chat routes
+		chat.RegisterRoutes(api, chatHandler)
+
+		// Notification routes
+		notification.RegisterRoutes(api, notificationHandler)
+
 		// User routes
 		api.GET("/users/profile/:username", authHandler.GetUserProfileByUsername)
+		api.GET("/users/search", authHandler.SearchUsers)
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")
@@ -102,7 +118,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 
 		// WebSocket Route
 		api.GET("/ws", func(c *gin.Context) {
-			websocket.ServeWs(hub, c)
+			websocket.ServeWs(hub, chatService, c)
 		})
 	}
 

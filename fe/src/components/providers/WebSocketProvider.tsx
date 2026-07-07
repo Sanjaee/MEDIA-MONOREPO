@@ -4,12 +4,15 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { getNotificationsAction, markAllNotificationsAsReadAction } from "@/actions/notification.actions";
 
 type Notification = {
+  id?: string;
   title: string;
   message: string;
   postId?: string;
   timestamp: Date;
+  isRead?: boolean;
 };
 
 interface WebSocketContextType {
@@ -34,8 +37,22 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Use window.location.host to dynamically connect to the current domain (e.g. localhost or production domain)
-    // and rely on NGINX to proxy /api/ws to the Go backend.
+    // Fetch initial notifications
+    getNotificationsAction().then((data) => {
+      if (data && data.length > 0) {
+        const mapped = data.map((n: any) => ({
+          id: n.id,
+          title: n.type === "LIKE" ? "New Like" : n.type === "COMMENT" ? "New Comment" : "Notification",
+          message: n.message || (n.type === "LIKE" ? "Someone liked your post" : ""),
+          postId: n.entityId,
+          timestamp: new Date(n.createdAt),
+          isRead: n.isRead,
+        }));
+        setNotifications(mapped);
+        setUnreadCount(mapped.filter((n: any) => !n.isRead).length);
+      }
+    });
+
     let wsUrl = "";
     if (process.env.NEXT_PUBLIC_API_URL) {
       wsUrl = process.env.NEXT_PUBLIC_API_URL.replace("http", "ws").replace("/api", "/api/ws");
@@ -53,26 +70,32 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === "NOTIFICATION") {
-          const payload = data.payload;
-          const newNotif: Notification = {
-            title: payload.title,
-            message: payload.message,
-            postId: payload.postId,
-            timestamp: new Date(),
-          };
+        const messages = event.data.split('\n');
+        for (const msg of messages) {
+          if (!msg.trim()) continue;
+          
+          const data = JSON.parse(msg);
+          if (data.type === "NOTIFICATION") {
+            const payload = data.payload;
+            const newNotif: Notification = {
+              title: payload.title,
+              message: payload.message,
+              postId: payload.postId,
+              timestamp: new Date(),
+              isRead: false,
+            };
 
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((prev) => prev + 1);
+            setNotifications((prev) => [newNotif, ...prev]);
+            setUnreadCount((prev) => prev + 1);
 
-          toast(payload.title, {
-            description: payload.message,
-          });
+            toast(payload.title, {
+              description: payload.message,
+            });
 
-          // Invalidate query to refetch feed when a post with media finishes uploading
-          if (payload.title === "Post Uploaded") {
-            queryClient.invalidateQueries({ queryKey: ["feed"] });
+            // Invalidate query to refetch feed when a post with media finishes uploading
+            if (payload.title === "Post Uploaded") {
+              queryClient.invalidateQueries({ queryKey: ["feed"] });
+            }
           }
         }
       } catch (err) {
@@ -92,7 +115,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [session, status]);
 
   const clearNotifications = () => setNotifications([]);
-  const markAsRead = () => setUnreadCount(0);
+  const markAsRead = () => {
+    setUnreadCount(0);
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    markAllNotificationsAsReadAction();
+  };
 
   return (
     <WebSocketContext.Provider value={{ isConnected, notifications, clearNotifications, markAsRead, unreadCount }}>

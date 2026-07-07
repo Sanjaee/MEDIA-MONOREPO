@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"media-api/internal/modules/chat"
 	"media-api/internal/modules/comment"
 	"media-api/internal/modules/interaction"
 	"media-api/internal/modules/monetization"
@@ -58,6 +59,10 @@ func Migrate(db *gorm.DB) {
 		// Monetization
 		&monetization.Transaction{},
 		&monetization.AdSlot{},
+
+		// Chat
+		&chat.Conversation{},
+		&chat.Message{},
 
 		// News
 		&news.News{},

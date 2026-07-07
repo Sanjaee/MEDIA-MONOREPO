@@ -13,3 +13,15 @@ export async function getUserProfileByUsername(username: string) {
     return null;
   }
 }
+
+export async function searchUsersAction(query: string) {
+  try {
+    const res = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(query)}`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}

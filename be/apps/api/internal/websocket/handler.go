@@ -4,10 +4,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	
+	"media-api/internal/modules/chat"
 )
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *Hub, c *gin.Context) {
+func ServeWs(hub *Hub, chatService chat.Service, c *gin.Context) {
 	// Extract the user ID from the query param
 	userID := c.Query("userId")
 	if userID == "" {
@@ -22,10 +24,11 @@ func ServeWs(hub *Hub, c *gin.Context) {
 	}
 
 	client := &Client{
-		Hub:    hub,
-		UserID: userID,
-		Conn:   conn,
-		send:   make(chan *MessagePayload, 256),
+		Hub:         hub,
+		UserID:      userID,
+		Conn:        conn,
+		send:        make(chan *MessagePayload, 256),
+		ChatService: chatService,
 	}
 
 	client.Hub.register <- client

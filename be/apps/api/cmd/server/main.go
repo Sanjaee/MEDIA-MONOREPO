@@ -25,6 +25,7 @@ func main() {
 	// 3. Connect to Redis
 	database.ConnectRedis(cfg.RedisURL)
 	cache.InitRedis(cfg.RedisURL)
+	websocket.SetRedisClient(database.RedisClient)
 
 	// 3.5 Initialize WebSocket Hub
 	hub := websocket.NewHub()

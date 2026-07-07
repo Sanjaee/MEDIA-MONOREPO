@@ -24,6 +24,7 @@ type Repository interface {
 	
 	CheckUsernameExists(username string) (bool, error)
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
+	SearchUsers(query string, limit int) ([]user.User, error)
 }
 
 type repository struct {
@@ -178,4 +179,17 @@ func (r *repository) GetUserProfileByUsername(username string) (map[string]inter
 	}
 
 	return profile, nil
+}
+
+func (r *repository) SearchUsers(query string, limit int) ([]user.User, error) {
+	var users []user.User
+	if limit <= 0 {
+		limit = 20
+	}
+	
+	err := r.db.Where("name ILIKE ? OR username ILIKE ?", "%"+query+"%", "%"+query+"%").Limit(limit).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }

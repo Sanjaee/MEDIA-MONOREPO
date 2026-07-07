@@ -70,8 +70,15 @@ export default async function UserProfilePage({ params }: PageProps) {
           <div className="text-[11px] text-[#ccc] font-semibold mt-0.5" style={{ textShadow: "1px 1px 1px #000" }}>
             {user.isBanned ? "Banned" : user.role === "admin" ? "Administrator" : isVip ? "VIP User" : "Member"}
           </div>
-          <div className="text-[11px] mt-1" style={{ textShadow: "1px 1px 1px #000" }}>
-            <span className="text-white">Status:</span> <span className="text-[#00ff00] font-semibold">Online</span> <span className="text-white">(Reading Thread Simple-ish questions @ 09:20 AM)</span>
+          <div className="text-[11px] mt-1 flex flex-wrap items-center gap-2" style={{ textShadow: "1px 1px 1px #000" }}>
+            <div>
+              <span className="text-white">Status:</span> <span className="text-[#00ff00] font-semibold">Online</span> <span className="text-white">(Reading Thread Simple-ish questions @ 09:20 AM)</span>
+            </div>
+            {!user.isBanned && (
+              <Link href={`/messages?userId=${user.id}`} className="bg-primary/20 text-primary border border-primary px-2 py-0.5 rounded shadow hover:bg-primary hover:text-black transition">
+                Send Message
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"media-api/internal/queue"
+	"media-api/internal/modules/notification"
 
 	"github.com/hibiken/asynq"
 )
@@ -18,10 +19,11 @@ type Service interface {
 
 type service struct {
 	repository Repository
+	notifSv    notification.Service
 }
 
-func NewService(repository Repository) *service {
-	return &service{repository}
+func NewService(repository Repository, notifSv notification.Service) *service {
+	return &service{repository, notifSv}
 }
 
 func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
@@ -32,6 +34,20 @@ func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
 
 	if comment.ParentCommentID != nil && *comment.ParentCommentID != "" {
 		_ = s.repository.IncrementReplyCount(*comment.ParentCommentID, 1)
+		
+		// Send reply notification
+		if s.notifSv != nil {
+			if parentAuthorID, err := s.repository.GetCommentAuthorID(*comment.ParentCommentID); err == nil && parentAuthorID != "" {
+				_ = s.notifSv.CreateCommentNotification(parentAuthorID, comment.AuthorID, comment.PostID, comment.Content)
+			}
+		}
+	} else {
+		// Send comment notification to post author
+		if s.notifSv != nil {
+			if postAuthorID, err := s.repository.GetPostAuthorID(comment.PostID); err == nil && postAuthorID != "" {
+				_ = s.notifSv.CreateCommentNotification(postAuthorID, comment.AuthorID, comment.PostID, comment.Content)
+			}
+		}
 	}
 
 	if queue.Client != nil {

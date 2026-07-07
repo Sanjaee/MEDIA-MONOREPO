@@ -9,6 +9,7 @@ import { RightSidebar } from "@/components/layout/RightSidebar";
 import { SidebarLayout } from "@/components/layout/SidebarLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
+import { ChatProvider } from "@/context/ChatContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,15 +48,17 @@ export default function RootLayout({
           <QueryProvider>
             <WebSocketProvider>
               <TooltipProvider>
-                <SidebarLayout 
-                  navbar={<Navbar />}
-                  leftSidebar={<LeftSidebar />} 
-                  rightSidebar={<RightSidebar />}
-                >
-                  {children}
-                </SidebarLayout>
-                {modal}
-                <Toaster />
+                <ChatProvider>
+                  <SidebarLayout 
+                    navbar={<Navbar />}
+                    leftSidebar={<LeftSidebar />} 
+                    rightSidebar={<RightSidebar />}
+                  >
+                    {children}
+                  </SidebarLayout>
+                  {modal}
+                  <Toaster />
+                </ChatProvider>
               </TooltipProvider>
             </WebSocketProvider>
           </QueryProvider>
