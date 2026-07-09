@@ -4,6 +4,8 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { getCommentsAction } from "@/actions/comment.actions";
 import { CommentItem } from "./CommentItem";
 import { CommentForm } from "./CommentForm";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRef, useEffect } from "react";
 
 interface CommentFeedProps {
   postId: string;
@@ -28,9 +30,32 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
   });
 
   const comments = data?.pages.flatMap(page => page.comments) || [];
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: hasNextPage ? comments.length + 1 : comments.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100, // Estimate for comment height
+    overscan: 5,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+
+    if (
+      lastItem.index >= comments.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage
+    ) {
+      fetchNextPage();
+    }
+  }, [virtualItems, comments.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="w-full pb-20">
+    <div className="w-full pb-20 flex flex-col h-full">
       {!hideHeader && (
         <>
           <div className="border-b-1 border-muted"></div>
@@ -40,7 +65,7 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
         </>
       )}
 
-      {!hideForm && <CommentForm postId={postId} />}
+      {!hideForm && <div className="shrink-0"><CommentForm postId={postId} /></div>}
 
       {status === "pending" ? (
         <div className="p-4 text-center text-muted-foreground">Loading comments...</div>
@@ -51,22 +76,43 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
           No comments yet. Be the first to reply!
         </div>
       ) : (
-        <div className="flex flex-col">
-          {comments.map((comment) => (
-            <CommentItem key={comment.id} comment={comment} postId={postId} />
-          ))}
-        </div>
-      )}
-
-      {hasNextPage && (
-        <div className="p-4 text-center">
-          <button
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="text-blue-500 hover:underline disabled:opacity-50"
+        <div 
+          ref={parentRef} 
+          className="flex-1 overflow-y-auto w-full relative max-h-[600px] border-t mt-4 pt-2"
+        >
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
           >
-            {isFetchingNextPage ? "Loading..." : "Load more"}
-          </button>
+            {virtualItems.map((virtualItem) => {
+              const isLoaderRow = virtualItem.index > comments.length - 1;
+              const comment = comments[virtualItem.index];
+
+              return (
+                <div
+                  key={virtualItem.key}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  {isLoaderRow ? (
+                    <div className="p-4 text-center text-muted-foreground">Loading more...</div>
+                  ) : (
+                    <CommentItem comment={comment} postId={postId} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

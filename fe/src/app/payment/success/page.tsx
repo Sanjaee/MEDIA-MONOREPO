@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, Suspense, useState } from "react";
+import { useEffect, Suspense, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 
@@ -13,9 +13,13 @@ function SuccessContent() {
   const { data: session, update } = useSession();
   const [verifying, setVerifying] = useState(true);
 
+  const hasVerified = useRef(false);
+
   useEffect(() => {
     const verifyPayment = async () => {
-      if (!orderId || !session?.user?.id) return;
+      if (!orderId || !session?.user?.id || hasVerified.current) return;
+      hasVerified.current = true;
+      
       try {
         await axios.get(`/api/payment/plisio/verify?order_id=${orderId}`, {
           headers: {
@@ -35,7 +39,7 @@ function SuccessContent() {
     };
 
     verifyPayment();
-  }, [orderId, session?.user?.id, update]);
+  }, [orderId, session?.user?.id]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black w-full">
