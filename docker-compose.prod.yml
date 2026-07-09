@@ -60,6 +60,7 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - PLISIO_API_KEY=${PLISIO_API_KEY}
+      - NEXT_PUBLIC_APP_URL=http://localhost
     networks:
       - backend
     depends_on:

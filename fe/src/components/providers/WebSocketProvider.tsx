@@ -1,57 +1,75 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { getNotificationsAction, markAllNotificationsAsReadAction } from "@/actions/notification.actions";
 
-type Notification = {
+export type Notification = {
   id?: string;
-  title: string;
-  message: string;
+  actor?: {
+    username?: string;
+    image?: string;
+    role?: string;
+  };
+  actionText: string;
+  message?: string;
   postId?: string;
   timestamp: Date;
   isRead?: boolean;
 };
 
-interface WebSocketContextType {
+type WebSocketContextType = {
+  ws: WebSocket | null;
   isConnected: boolean;
   notifications: Notification[];
   clearNotifications: () => void;
-  markAsRead: () => void;
   unreadCount: number;
-}
+  markAsRead: () => void;
+};
 
-const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
+const WebSocketContext = createContext<WebSocketContextType>({
+  ws: null,
+  isConnected: false,
+  notifications: [],
+  clearNotifications: () => {},
+  unreadCount: 0,
+  markAsRead: () => {},
+});
 
-export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const { data: session, status } = useSession();
+export const WebSocketProvider = ({ children }: { children: React.ReactNode }) => {
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user?.id) {
-      return;
-    }
-
-    // Fetch initial notifications
+    // Initial fetch of notifications
     getNotificationsAction().then((data) => {
       if (data && data.length > 0) {
         const mapped = data.map((n: any) => ({
           id: n.id,
-          title: n.type === "LIKE" ? "New Like" : n.type === "COMMENT" ? "New Comment" : "Notification",
-          message: n.message || (n.type === "LIKE" ? "Someone liked your post" : ""),
+          actor: {
+            username: n.actor?.username || "System",
+            image: n.actor?.image || null,
+            role: n.actor?.role || "user",
+          },
+          actionText: n.type === "LIKE" ? "liked your post" : n.type === "SYSTEM" ? "Role Upgraded" : "commented",
+          message: n.type === "LIKE" ? "" : (n.message || ""),
           postId: n.entityId,
           timestamp: new Date(n.createdAt),
           isRead: n.isRead,
         }));
+        
         setNotifications(mapped);
         setUnreadCount(mapped.filter((n: any) => !n.isRead).length);
       }
     });
+
+    if (!session?.user?.id) return;
 
     let wsUrl = "";
     if (process.env.NEXT_PUBLIC_API_URL) {
@@ -78,8 +96,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           if (data.type === "NOTIFICATION") {
             const payload = data.payload;
             const newNotif: Notification = {
-              title: payload.title,
-              message: payload.message,
+              actor: {
+                username: payload.actorUsername || "Someone",
+                image: payload.actorImage || null,
+              },
+              actionText: payload.actionText || "",
+              message: payload.message || "",
               postId: payload.postId,
               timestamp: new Date(),
               isRead: false,
@@ -88,8 +110,18 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             setNotifications((prev) => [newNotif, ...prev]);
             setUnreadCount((prev) => prev + 1);
 
-            toast(payload.title, {
+            const displayTitle = `${newNotif.actor?.username} ${newNotif.actionText}`;
+
+            const isSystemUpgrade = newNotif.actionText === "Role Upgraded";
+
+            toast(displayTitle, {
               description: payload.message,
+              style: isSystemUpgrade ? {
+                background: "linear-gradient(to bottom right, #2a2105, #000000)",
+                border: "1px solid #d4af37",
+                color: "#f3e5ab",
+                boxShadow: "0 0 20px rgba(212, 175, 55, 0.3)",
+              } : undefined,
             });
 
             // Invalidate query to refetch feed when a post with media finishes uploading
@@ -112,7 +144,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     return () => {
       ws.close();
     };
-  }, [session, status]);
+  }, [session?.user?.id]);
 
   const clearNotifications = () => setNotifications([]);
   const markAsRead = () => {
@@ -122,7 +154,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <WebSocketContext.Provider value={{ isConnected, notifications, clearNotifications, markAsRead, unreadCount }}>
+    <WebSocketContext.Provider value={{ ws, isConnected, notifications, clearNotifications, markAsRead, unreadCount }}>
       {children}
     </WebSocketContext.Provider>
   );

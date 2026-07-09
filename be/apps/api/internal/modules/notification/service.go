@@ -10,6 +10,7 @@ import (
 type Service interface {
 	CreateLikeNotification(userID, actorID, postID string) error
 	CreateCommentNotification(userID, actorID, postID, commentText string) error
+	CreateRoleUpgradeNotification(userID, roleName string) error
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
@@ -45,11 +46,24 @@ func (s *service) CreateLikeNotification(userID, actorID, postID string) error {
 		return err
 	}
 
+	actorDetails, _ := s.repo.GetActorDetails(actorID)
+	actorUsername := "Someone"
+	var actorImage interface{} = nil
+
+	if actorDetails != nil {
+		if username, ok := actorDetails["username"].(string); ok && username != "" {
+			actorUsername = username
+		}
+		actorImage = actorDetails["image"]
+	}
+
 	// Push via websocket
 	payload := map[string]interface{}{
-		"title":   "New Like",
-		"message": "Someone liked your post",
-		"postId":  postID,
+		"actorUsername": actorUsername,
+		"actorImage":    actorImage,
+		"actionText":    "liked your post",
+		"message":       "",
+		"postId":        postID,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	
@@ -86,11 +100,24 @@ func (s *service) CreateCommentNotification(userID, actorID, postID, commentText
 		return err
 	}
 
+	actorDetails, _ := s.repo.GetActorDetails(actorID)
+	actorUsername := "Someone"
+	var actorImage interface{} = nil
+
+	if actorDetails != nil {
+		if username, ok := actorDetails["username"].(string); ok && username != "" {
+			actorUsername = username
+		}
+		actorImage = actorDetails["image"]
+	}
+
 	// Push via websocket
 	payload := map[string]interface{}{
-		"title":   "New Comment",
-		"message": commentText,
-		"postId":  postID,
+		"actorUsername": actorUsername,
+		"actorImage":    actorImage,
+		"actionText":    "commented",
+		"message":       commentText,
+		"postId":        postID,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	
@@ -100,6 +127,44 @@ func (s *service) CreateCommentNotification(userID, actorID, postID, commentText
 		Payload: payloadBytes,
 	}
 	_ = websocket.PublishToRedis(msg)
+
+	return nil
+}
+
+func (s *service) CreateRoleUpgradeNotification(userID, roleName string) error {
+	nType := "SYSTEM"
+	isRead := false
+	message := "Congratulations! Your role has been upgraded to " + roleName
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  userID, // System or self
+		Type:     &nType,
+		Message:  &message,
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	// Push via websocket
+	payload := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Role Upgraded",
+		"message":       message,
+		"postId":        "",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
 
 	return nil
 }

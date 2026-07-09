@@ -1,6 +1,7 @@
 package monetization
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -19,6 +20,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"media-api/internal/cache"
+	"media-api/internal/modules/notification"
 )
 
 const plisioBaseURL = "https://api.plisio.net/api/v1"
@@ -28,20 +31,23 @@ type Service interface {
 	CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
 	HandlePlisioWebhook(payload []byte) error
 	GetPlisioCurrencies() ([]PlisioCurrency, error)
+	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
 }
 
 type service struct {
 	repo         Repository
 	db           *gorm.DB
+	notifService notification.Service
 	plisioAPIKey string
 	appURL       string
 	backendURL   string
 }
 
-func NewService(repo Repository, db *gorm.DB, apiKey, appURL, backendURL string) Service {
+func NewService(repo Repository, db *gorm.DB, notifService notification.Service, apiKey, appURL, backendURL string) Service {
 	return &service{
 		repo:         repo,
 		db:           db,
+		notifService: notifService,
 		plisioAPIKey: apiKey,
 		appURL:       appURL,
 		backendURL:   backendURL,
@@ -288,6 +294,14 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
 
+	// 1. Check if user already has this role
+	var currentRole string
+	if err := s.db.Table("users").Select("role").Where("id = ?", userID).Scan(&currentRole).Error; err == nil {
+		if strings.ToLower(currentRole) == strings.ToLower(req.Role) {
+			return nil, "", fmt.Errorf("you already have the %s role", req.Role)
+		}
+	}
+
 	// Check for existing pending transaction
 	existingTx, err := s.repo.FindPendingRoleTransaction(userID, req.Role)
 	if err == nil && existingTx != nil {
@@ -305,13 +319,13 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	var amountUSD float64
 	switch strings.ToLower(req.Role) {
 	case "vip":
-		amountUSD = 10.0
+		amountUSD = 1.0
 	case "mvp":
-		amountUSD = 30.0
+		amountUSD = 1.0
 	case "mod":
-		amountUSD = 50.0
+		amountUSD = 1.0
 	case "god":
-		amountUSD = 100.0
+		amountUSD = 1.0
 	default:
 		return nil, "", fmt.Errorf("invalid role")
 	}
@@ -319,7 +333,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	orderID := fmt.Sprintf("PAY_ROLE_%s", uuid.New().String())
 	orderNumber := uuid.New().String()
 
-	callbackURL := s.backendURL + "/v1/payment/webhook?json=true"
+	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
 
 	params := url.Values{}
 	params.Add("api_key", s.plisioAPIKey)
@@ -399,7 +413,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 	orderID := fmt.Sprintf("PAY_AD_%s", uuid.New().String())
 	orderNumber := uuid.New().String()
 
-	callbackURL := s.backendURL + "/v1/payment/webhook?json=true"
+	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
 
 	params := url.Values{}
 	params.Add("api_key", s.plisioAPIKey)
@@ -497,7 +511,7 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 
 	var paymentStatus string
 	switch strings.ToLower(cb.Status) {
-	case "completed":
+	case "completed", "mismatch":
 		paymentStatus = "success"
 	case "expired":
 		paymentStatus = "expired"
@@ -531,8 +545,133 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 		} else {
 			// Upgrade User Role
 			s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.Role, tx.UserID)
+			cache.DeletePattern(context.Background(), "feed:*")
+			
+			// Send Notification
+			if s.notifService != nil {
+				_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.Role)
+			}
 		}
 	}
 
 	return nil
+}
+
+type plisioOperationsResponse struct {
+	Status string `json:"status"`
+	Data   struct {
+		Operations []struct {
+			ID     string `json:"id"`
+			Type   string `json:"type"`
+			Status string `json:"status"`
+			Params struct {
+				OrderNumber string `json:"order_number"`
+			} `json:"params"`
+		} `json:"operations"`
+	} `json:"data"`
+}
+
+func (s *service) fetchPlisioOperations(search string) (*plisioOperationsResponse, error) {
+	if s.plisioAPIKey == "" || search == "" {
+		return nil, fmt.Errorf("plisio not configured or empty search")
+	}
+	u := fmt.Sprintf("%s/operations?api_key=%s&search=%s", plisioBaseURL, url.QueryEscape(s.plisioAPIKey), url.QueryEscape(search))
+	req, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("plisio operations API status %d", resp.StatusCode)
+	}
+	var op plisioOperationsResponse
+	log.Printf("[Plisio] Operations response: %s", string(body))
+	if err := json.Unmarshal(body, &op); err != nil {
+		return nil, err
+	}
+	return &op, nil
+}
+
+func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error) {
+	var tx Transaction
+	err := s.db.Where("id = ?", orderID).First(&tx).Error
+	if err != nil {
+		return nil, "", fmt.Errorf("payment not found")
+	}
+	if tx.UserID != userID {
+		return nil, "", fmt.Errorf("forbidden: this payment belongs to another user")
+	}
+
+	if tx.Status != nil && *tx.Status == "success" {
+		return &tx, "success", nil
+	}
+
+	if tx.PlisioOrderID == nil || *tx.PlisioOrderID == "" {
+		log.Printf("[VerifyPlisioOrder] PlisioOrderID is nil for tx %s", tx.ID)
+		return &tx, "pending", nil
+	}
+
+	log.Printf("[VerifyPlisioOrder] Fetching operations for tx %s with PlisioOrderID %s", tx.ID, *tx.PlisioOrderID)
+	opResp, err := s.fetchPlisioOperations(*tx.PlisioOrderID)
+	if err != nil {
+		log.Printf("[VerifyPlisioOrder] fetchPlisioOperations err: %v", err)
+		return &tx, "pending", nil
+	}
+	if opResp.Status != "success" {
+		log.Printf("[VerifyPlisioOrder] opResp status is not success: %s", opResp.Status)
+		return &tx, "pending", nil
+	}
+
+	var completed bool
+	for _, op := range opResp.Data.Operations {
+		log.Printf("[VerifyPlisioOrder] Operation type: %s, status: %s, orderNumber: %s", op.Type, op.Status, op.Params.OrderNumber)
+		if op.Type == "invoice" && (strings.ToLower(op.Status) == "completed" || strings.ToLower(op.Status) == "mismatch") {
+			if op.Params.OrderNumber == "" || op.Params.OrderNumber == *tx.PlisioOrderID {
+				completed = true
+				break
+			}
+		}
+	}
+
+	if !completed {
+		log.Printf("[VerifyPlisioOrder] No completed invoice operation found for tx %s", tx.ID)
+		return &tx, "pending", nil
+	}
+	
+	log.Printf("[VerifyPlisioOrder] Invoice completed for tx %s, updating status and role", tx.ID)
+
+	// Update status and role
+	status := "success"
+	tx.Status = &status
+	s.repo.UpdateTransaction(tx.ID, map[string]interface{}{
+		"status": "success",
+	})
+	
+	if tx.Role == "ad" {
+		var ad AdSlot
+		if err := s.db.Where("transaction_id = ?", tx.ID).First(&ad).Error; err == nil {
+			s.repo.UpdateAdSlot(ad.ID, map[string]interface{}{
+				"status": "active",
+			})
+		}
+	} else {
+		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.Role, tx.UserID)
+		cache.DeletePattern(context.Background(), "feed:*")
+		
+		if s.notifService != nil {
+			_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.Role)
+		}
+	}
+
+	return &tx, "success", nil
 }

@@ -9,6 +9,7 @@ type Repository interface {
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
+	GetActorDetails(actorID string) (map[string]interface{}, error)
 }
 
 type repository struct {
@@ -46,4 +47,10 @@ func (r *repository) MarkAsRead(notificationID string, userID string) error {
 
 func (r *repository) MarkAllAsRead(userID string) error {
 	return r.db.Model(&Notification{}).Where("user_id = ? AND is_read = false", userID).Update("is_read", true).Error
+}
+
+func (r *repository) GetActorDetails(actorID string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := r.db.Table("users").Where("id = ?", actorID).Select("username, image").Take(&result).Error
+	return result, err
 }

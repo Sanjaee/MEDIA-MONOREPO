@@ -18,6 +18,7 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.POST("/plisio/role", h.CreateRolePayment)
 		payment.POST("/plisio/ad", h.CreateAdPayment)
 		payment.POST("/plisio/webhook", h.Webhook)
+		payment.GET("/plisio/verify", h.VerifyOrder)
 	}
 }
 
@@ -119,4 +120,40 @@ func (h *Handler) Webhook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *Handler) VerifyOrder(c *gin.Context) {
+	// Require Auth
+	authHeader := c.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
+		userID = xUserId
+	}
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	orderID := c.Query("order_id")
+	if orderID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "order_id is required"})
+		return
+	}
+
+	tx, status, err := h.service.VerifyPlisioOrder(userID, orderID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": map[string]interface{}{
+			"payment": tx,
+			"status":  status,
+		},
+	})
 }

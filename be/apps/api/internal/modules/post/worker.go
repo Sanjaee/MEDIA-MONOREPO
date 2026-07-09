@@ -88,19 +88,21 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, cld *cloudinary.Cloudin
 			log.Printf("Failed to update post visibility for post %s: %v", payload.PostID, err)
 		}
 
-		// Fetch post author to send notification
-		var p Post
-		if err := db.First(&p, "id = ?", payload.PostID).Error; err == nil {
-			if hub != nil {
-				notificationPayload, _ := json.Marshal(map[string]interface{}{
-					"title":   "Post Uploaded",
-					"message": "Your post media has finished uploading!",
-					"postId":  p.ID,
-				})
-				hub.SendToUser <- &websocket.MessagePayload{
-					UserID:  p.AuthorID,
-					Type:    "NOTIFICATION",
-					Payload: notificationPayload,
+		if len(uploadedMedia) > 0 {
+			// Fetch post author to send notification
+			var p Post
+			if err := db.First(&p, "id = ?", payload.PostID).Error; err == nil {
+				if hub != nil {
+					notificationPayload, _ := json.Marshal(map[string]interface{}{
+						"title":   "Post Uploaded",
+						"message": "Your post media has finished uploading!",
+						"postId":  p.ID,
+					})
+					hub.SendToUser <- &websocket.MessagePayload{
+						UserID:  p.AuthorID,
+						Type:    "NOTIFICATION",
+						Payload: notificationPayload,
+					}
 				}
 			}
 		}

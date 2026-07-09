@@ -10,28 +10,28 @@ import Image from "next/image";
 const TIERS = [
   { 
     role: "vip", 
-    price: "$10", 
+    price: "$1", 
     name: "VIP Member", 
     icon: <Star className="w-5 h-5 text-blue-400" />,
     features: ["Verified checkmark", "Basic analytics", "Custom profile colors"] 
   },
   { 
     role: "mvp", 
-    price: "$30", 
+    price: "$1", 
     name: "MVP", 
     icon: <Zap className="w-5 h-5 text-yellow-400" />,
     features: ["Everything in VIP", "Profile Badge", "Increased upload limits"] 
   },
   { 
     role: "mod", 
-    price: "$50", 
+    price: "$1", 
     name: "Moderator", 
     icon: <Shield className="w-5 h-5 text-green-400" />,
     features: ["Everything in MVP", "Mod Tools access", "Content management"] 
   },
   { 
     role: "god", 
-    price: "$100", 
+    price: "$1", 
     name: "God", 
     icon: <Sparkles className="w-5 h-5 text-purple-400" />,
     features: ["Everything in Mod", "God Mode privileges", "Bypass all limits"] 

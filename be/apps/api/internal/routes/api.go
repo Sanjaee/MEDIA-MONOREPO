@@ -58,7 +58,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 		backendURL = "http://localhost:8080"
 	}
 	
-	monetizationService := monetization.NewService(monetizationRepo, db, plisioAPIKey, appURL, backendURL)
+	monetizationService := monetization.NewService(monetizationRepo, db, notificationService, plisioAPIKey, appURL, backendURL)
 
 	monetizationHandler := monetization.NewHandler(monetizationService)
 

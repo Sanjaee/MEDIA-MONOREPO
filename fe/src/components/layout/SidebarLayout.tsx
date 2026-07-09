@@ -17,7 +17,7 @@ export function SidebarLayout({ navbar, leftSidebar, rightSidebar, children }: S
   const isPostDetail = pathname.includes("/status/");
   const showSidebars = mainRoutes.includes(pathname) || isPostDetail;
 
-  if (pathname === "/premium" || pathname.startsWith("/admin")) {
+  if (pathname === "/premium" || pathname.startsWith("/admin") || pathname.startsWith("/payment")) {
     return <>{children}</>;
   }
 
