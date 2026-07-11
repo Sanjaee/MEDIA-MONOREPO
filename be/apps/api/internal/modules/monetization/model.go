@@ -7,7 +7,8 @@ import (
 type Transaction struct {
 	ID            string    `gorm:"primaryKey;type:varchar"`
 	UserID        string    `gorm:"type:varchar;not null"`
-	Role          string    `gorm:"type:varchar;not null"`
+	ItemType      string    `gorm:"type:varchar;not null;default:'role'"` // 'role', 'ad', 'product'
+	ItemID        string    `gorm:"type:varchar;not null;default:''"`
 	Amount        int       `gorm:"type:integer;not null"`
 	Status        *string   `gorm:"type:varchar;default:'pending'"`
 	PlisioOrderID *string   `gorm:"type:varchar"`
@@ -33,4 +34,13 @@ type AdSlot struct {
 	ActiveUntil   *time.Time `gorm:"type:timestamp" json:"activeUntil"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt     time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+}
+
+type ProductPurchase struct {
+	ID            string    `gorm:"primaryKey;type:varchar" json:"id"`
+	UserID        string    `gorm:"type:varchar;not null" json:"userId"`
+	PostID        string    `gorm:"type:varchar;not null" json:"postId"`
+	TransactionID string    `gorm:"type:varchar;not null" json:"transactionId"`
+	Amount        int       `gorm:"type:integer;not null" json:"amount"`
+	CreatedAt     time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 }

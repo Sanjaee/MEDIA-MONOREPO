@@ -32,6 +32,7 @@ const plisioBaseURL = "https://api.plisio.net/api/v1"
 type Service interface {
 	CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, string, error)
 	CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
+	CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, string, error)
 	HandlePlisioWebhook(payload []byte) error
 	GetPlisioCurrencies() ([]PlisioCurrency, error)
 	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
@@ -395,13 +396,96 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	tx := &Transaction{
 		ID:            orderID,
 		UserID:        userID,
-		Role:          req.Role,
+		ItemType:      "role",
+		ItemID:        req.Role,
 		Amount:        int(amountUSD * 100), // in cents
 		Status:        &status,
 		PaymentMethod: &method,
 		PlisioOrderID: &orderNumber,
 		PlisioTxnID:   &inv.TxnID,
 		InvoiceURL:    &inv.InvoiceURL,
+	}
+
+	if err := s.repo.CreateTransaction(tx); err != nil {
+		return nil, "", err
+	}
+
+	return tx, inv.InvoiceURL, nil
+}
+
+func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, string, error) {
+	if s.plisioAPIKey == "" {
+		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
+	}
+
+	if req.Amount < 1.0 {
+		return nil, "", fmt.Errorf("amount too small")
+	}
+
+	orderID := fmt.Sprintf("PAY_PROD_%s", uuid.New().String())
+	orderNumber := uuid.New().String()
+
+	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
+
+	params := url.Values{}
+	params.Add("api_key", s.plisioAPIKey)
+	params.Add("order_number", orderNumber)
+	params.Add("order_name", fmt.Sprintf("Payment for Product Post #%s", req.PostID))
+	params.Add("source_currency", "USD")
+	params.Add("source_amount", fmt.Sprintf("%.2f", req.Amount))
+	if req.Currency != "" {
+		params.Add("currency", req.Currency)
+	}
+	params.Add("callback_url", callbackURL)
+	params.Add("success_invoice_url", s.appURL+"/payment/success?order_id="+url.QueryEscape(orderID))
+	params.Add("fail_invoice_url", s.appURL+"/payment/failed?order_id="+url.QueryEscape(orderID))
+	params.Add("expire_min", "1440")
+
+	fullURL := fmt.Sprintf("%s/invoices/new?%s", plisioBaseURL, params.Encode())
+
+	httpReq, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var plisioResp PlisioInvoiceResponse
+	if err := json.Unmarshal(body, &plisioResp); err != nil {
+		return nil, "", err
+	}
+	if plisioResp.Status != "success" {
+		return nil, "", fmt.Errorf("plisio API error")
+	}
+
+	var inv PlisioInvoiceData
+	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
+		return nil, "", err
+	}
+
+	status := "pending"
+	method := "crypto"
+	// Encode Product PostID
+	tx := &Transaction{
+		ID:                orderID,
+		UserID:            userID,
+		ItemType:          "product",
+		ItemID:            req.PostID,
+		Amount:            int(req.Amount * 100), // in cents
+		Status:            &status,
+		PaymentMethod:     &method,
+		PlisioOrderID:     &orderNumber,
+		PlisioTxnID:       &inv.TxnID,
+		InvoiceURL:        &inv.InvoiceURL,
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
@@ -475,7 +559,8 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 	tx := &Transaction{
 		ID:            orderID,
 		UserID:        userID,
-		Role:          "ad", // Mark as ad payment
+		ItemType:      "ad",
+		ItemID:        req.AdID,
 		Amount:        int(req.Amount * 100),
 		Status:        &status,
 		PaymentMethod: &method,
@@ -543,7 +628,7 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 
 	// Update related entity if payment is successful
 	if paymentStatus == "success" && tx.Status != nil && *tx.Status != "success" {
-		if tx.Role == "ad" {
+		if tx.ItemType == "ad" {
 			// Activate AdSlot
 			// Need to find AdSlot by TransactionID
 			var ad AdSlot
@@ -555,14 +640,35 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 			if s.notifService != nil {
 				_ = s.notifService.CreateAdPaymentSuccessNotification(tx.UserID)
 			}
-		} else {
+		} else if tx.ItemType == "product" {
+			postID := tx.ItemID
+			// Create ProductPurchase
+			purchase := &ProductPurchase{
+				ID:            uuid.New().String(),
+				UserID:        tx.UserID,
+				PostID:        postID,
+				TransactionID: tx.ID,
+				Amount:        tx.Amount,
+			}
+			s.db.Create(purchase)
+
+			// Notify Seller
+			if s.notifService != nil {
+				// We need the seller's user ID. We can get it from the post.
+				var authorID string
+				if err := s.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error; err == nil && authorID != "" {
+					_ = s.notifService.CreateProductSaleNotification(authorID, tx.UserID, postID, tx.Amount)
+				}
+			}
+			cache.DeletePattern(context.Background(), "feed:*")
+		} else if tx.ItemType == "role" {
 			// Upgrade User Role
-			s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.Role, tx.UserID)
+			s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.ItemID, tx.UserID)
 			cache.DeletePattern(context.Background(), "feed:*")
 			
 			// Send Notification
 			if s.notifService != nil {
-				_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.Role)
+				_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.ItemID)
 			}
 		}
 	}
@@ -670,7 +776,7 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 		"status": "success",
 	})
 	
-	if tx.Role == "ad" {
+	if tx.ItemType == "ad" {
 		var ad AdSlot
 		if err := s.db.Where("transaction_id = ?", tx.ID).First(&ad).Error; err == nil {
 			s.repo.UpdateAdSlot(ad.ID, map[string]interface{}{
@@ -680,12 +786,32 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 		if s.notifService != nil {
 			_ = s.notifService.CreateAdPaymentSuccessNotification(tx.UserID)
 		}
-	} else {
-		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.Role, tx.UserID)
+	} else if tx.ItemType == "product" {
+		postID := tx.ItemID
+		// Create ProductPurchase if it doesn't exist
+		purchase := &ProductPurchase{
+			ID:            uuid.New().String(),
+			UserID:        tx.UserID,
+			PostID:        postID,
+			TransactionID: tx.ID,
+			Amount:        tx.Amount,
+		}
+		s.db.Where(ProductPurchase{TransactionID: tx.ID}).FirstOrCreate(purchase)
+		// Notify Seller
+		if s.notifService != nil {
+			var authorID string
+			if err := s.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error; err == nil && authorID != "" {
+				_ = s.notifService.CreateProductSaleNotification(authorID, tx.UserID, postID, tx.Amount)
+			}
+			_ = s.notifService.CreateProductPaymentSuccessNotification(tx.UserID)
+		}
+		cache.DeletePattern(context.Background(), "feed:*")
+	} else if tx.ItemType == "role" {
+		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.ItemID, tx.UserID)
 		cache.DeletePattern(context.Background(), "feed:*")
 		
 		if s.notifService != nil {
-			_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.Role)
+			_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.ItemID)
 		}
 	}
 
@@ -852,3 +978,4 @@ func (s *service) DeleteAdSlot(userID, adID string) error {
 	}
 	return s.repo.DeleteAdSlot(adID)
 }
+

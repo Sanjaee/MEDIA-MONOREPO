@@ -83,6 +83,20 @@ func (c *Controller) CreatePost(ctx *gin.Context) {
 		Content:  contentPtr,
 	}
 
+	if isProductVals := form.Value["isProduct"]; len(isProductVals) > 0 && isProductVals[0] == "true" {
+		isProd := true
+		post.IsProduct = &isProd
+		if priceVals := form.Value["productPrice"]; len(priceVals) > 0 {
+			if price, err := strconv.Atoi(priceVals[0]); err == nil {
+				post.ProductPrice = &price
+			}
+		}
+		if urlVals := form.Value["productUrl"]; len(urlVals) > 0 && urlVals[0] != "" {
+			urlStr := urlVals[0]
+			post.ProductURL = &urlStr
+		}
+	}
+
 	// Get uploaded files
 	files := form.File["media"]
 	var tempFiles []string

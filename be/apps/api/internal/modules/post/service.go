@@ -72,7 +72,11 @@ func (s *service) CreatePost(ctx context.Context, post *Post, tempFiles []string
 }
 
 func (s *service) GetPostById(ctx context.Context, userID, id string) (*Post, error) {
-	return s.repository.FindByID(userID, id)
+	post, err := s.repository.FindByID(userID, id)
+	if err != nil {
+		return nil, err
+	}
+	return scrubPost(post, userID), nil
 }
 
 func (s *service) UpdatePost(ctx context.Context, postID, userID string, content *string) error {
@@ -128,6 +132,7 @@ func (s *service) GetLatestFeed(ctx context.Context, userID string, cursor strin
 	if err != nil {
 		return nil, err
 	}
+	posts = scrubPosts(posts, userID)
 
 	// Save to Redis (Cache TTL 1 minute for feeds)
 	cache.Set(ctx, cacheKey, posts, 1*time.Minute)
@@ -148,8 +153,29 @@ func (s *service) GetTrendingFeed(ctx context.Context, userID string, cursorScor
 	if err != nil {
 		return nil, err
 	}
+	posts = scrubPosts(posts, userID)
 
 	cache.Set(ctx, cacheKey, posts, 3*time.Minute)
 
 	return posts, nil
+}
+
+func scrubPost(p *Post, userID string) *Post {
+	if p.IsProduct != nil && *p.IsProduct {
+		if !p.HasBought && p.AuthorID != userID {
+			p.ProductURL = nil
+		}
+	}
+	return p
+}
+
+func scrubPosts(posts []Post, userID string) []Post {
+	for i := range posts {
+		if posts[i].IsProduct != nil && *posts[i].IsProduct {
+			if !posts[i].HasBought && posts[i].AuthorID != userID {
+				posts[i].ProductURL = nil
+			}
+		}
+	}
+	return posts
 }

@@ -69,11 +69,46 @@ func (h *Handler) MarkAllAsRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": "success"})
 }
 
+func (h *Handler) DeleteNotification(c *gin.Context) {
+	userID := c.GetHeader("X-User-Id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	notificationID := c.Param("id")
+	err := h.service.DeleteNotification(notificationID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": "success"})
+}
+
+func (h *Handler) DeleteAllNotifications(c *gin.Context) {
+	userID := c.GetHeader("X-User-Id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	err := h.service.DeleteAllNotifications(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": "success"})
+}
+
 func RegisterRoutes(r *gin.RouterGroup, handler *Handler) {
 	group := r.Group("/notifications")
 	{
 		group.GET("", handler.GetNotifications)
 		group.PUT("/:id/read", handler.MarkAsRead)
 		group.PUT("/read-all", handler.MarkAllAsRead)
+		group.DELETE("/:id", handler.DeleteNotification)
+		group.DELETE("/delete-all", handler.DeleteAllNotifications)
 	}
 }

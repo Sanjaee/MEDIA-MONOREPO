@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Bookmark, Share, Trash2, MoreHorizontal, Edit, UserPlus, Ban, Flag, ThumbsUp, Copy, BarChart2 } from "lucide-react";
+import { MessageCircle, Bookmark, Share, Trash2, MoreHorizontal, Edit, UserPlus, Ban, Flag, ThumbsUp, Copy, BarChart2, X, Loader2 } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { PostWithRelations, usePostStore } from "@/store/usePostStore";
 import {
@@ -42,6 +42,7 @@ import { CommentForm } from "@/components/comment/CommentForm";
 import { CommentFeed } from "@/components/comment/CommentFeed";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 import { toast } from "sonner";
+import axios from "axios";
 
 export function PostCard({ post: initialPost, priority = false }: { post: PostWithRelations, priority?: boolean }) {
   const router = useRouter();
@@ -53,6 +54,10 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  
+  const [showCryptoModal, setShowCryptoModal] = useState(false);
+  const [currencies, setCurrencies] = useState<any[]>([]);
+  const [isBuying, setIsBuying] = useState(false);
 
   const [isLiked, setIsLiked] = useState(post.hasLiked ?? false);
   const [likeCount, setLikeCount] = useState(post.stats?.likes ?? 0);
@@ -205,6 +210,48 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
       toast.error("Failed to bookmark post");
     } finally {
       setIsBookmarking(false);
+    }
+  };
+
+  const handleBuyProductClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session?.user) {
+      toast.error("Please login to buy products");
+      return;
+    }
+    setIsBuying(true);
+    try {
+      const res = await axios.get("/api/payment/plisio/currencies");
+      if (res.data.success) {
+        setCurrencies(res.data.data);
+        setShowCryptoModal(true);
+      } else {
+        toast.error(res.data.error || "Failed to load currencies");
+      }
+    } catch (error: any) {
+      toast.error("Error loading crypto options");
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const handleCurrencySelect = async (currency: string) => {
+    setIsBuying(true);
+    try {
+      const res = await axios.post("/api/payment/plisio/product", {
+        postId: post.id,
+        amount: (post.productPrice || 0) / 100, // convert back to dollars
+        currency
+      });
+      if (res.data.success && res.data.data.hostedUrl) {
+        window.location.href = res.data.data.hostedUrl;
+      } else {
+        toast.error(res.data.error || "Failed to create invoice");
+        setIsBuying(false);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Failed to create invoice");
+      setIsBuying(false);
     }
   };
 
@@ -425,6 +472,29 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
           </div>
         )}
 
+        {/* Product Box */}
+        {post.isProduct && (
+          <div className="mt-4 p-4 border rounded-xl bg-muted/30">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="font-semibold text-lg">Digital Product</h4>
+                <p className="text-xl font-bold text-primary">${((post.productPrice || 0) / 100).toFixed(2)}</p>
+              </div>
+              <div>
+                {(post.hasBought || session?.user?.id === post.author?.id) ? (
+                  <Button onClick={(e) => { e.stopPropagation(); window.open(post.productUrl, '_blank'); }} className="rounded-full px-6 font-semibold">
+                    Access Product
+                  </Button>
+                ) : (
+                  <Button onClick={handleBuyProductClick} disabled={isBuying} className="rounded-full px-6 font-semibold bg-green-600 hover:bg-green-700 text-white">
+                    {isBuying ? "Processing..." : "Buy Product"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex justify-between items-center mt-3 text-muted-foreground">
           <button 
@@ -540,6 +610,49 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               <Copy className="h-4 w-4" />
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Crypto Selection Modal */}
+      <Dialog open={showCryptoModal} onOpenChange={(open) => { if (!isBuying) setShowCryptoModal(open); }}>
+        <DialogContent className="sm:max-w-md bg-[#16181c] border-[#333] text-white" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Select Crypto</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Choose your preferred cryptocurrency to complete the payment for the digital product.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isBuying && !currencies.length ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-white" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar mt-4">
+              {currencies.map(c => (
+                <button
+                  key={c.cid}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCurrencySelect(c.currency);
+                  }}
+                  disabled={isBuying}
+                  className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-[#333] hover:border-[#1d9bf0] hover:bg-[#1d9bf0]/10 transition-all disabled:opacity-50"
+                >
+                  <img src={c.icon} alt={c.name} className="w-8 h-8" />
+                  <span className="text-sm font-semibold">{c.name}</span>
+                  <span className="text-xs text-gray-500">{c.currency}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          
+          {isBuying && currencies.length > 0 && (
+            <div className="absolute inset-0 bg-[#16181c]/80 flex flex-col items-center justify-center rounded-2xl z-10">
+              <Loader2 className="w-10 h-10 animate-spin text-[#1d9bf0] mb-4" />
+              <span className="font-medium text-white">Preparing checkout...</span>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </article>

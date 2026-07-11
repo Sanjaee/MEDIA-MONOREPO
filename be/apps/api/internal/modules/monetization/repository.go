@@ -68,7 +68,7 @@ func (r *repository) FindTransactionByPlisioTxnID(txnID string) (*Transaction, e
 
 func (r *repository) FindPendingRoleTransaction(userID, role string) (*Transaction, error) {
 	var tx Transaction
-	err := r.db.Where("user_id = ? AND role = ? AND status = ?", userID, role, "pending").Order("created_at desc").First(&tx).Error
+	err := r.db.Where("user_id = ? AND item_type = ? AND item_id = ? AND status = ?", userID, "role", role, "pending").Order("created_at desc").First(&tx).Error
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,9 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [content, setContent] = useState("");
+  const [isProduct, setIsProduct] = useState(false);
+  const [productPrice, setProductPrice] = useState("");
+  const [productUrl, setProductUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +91,12 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       const formData = new FormData();
       formData.append("content", content);
       
+      if (isProduct) {
+        formData.append("isProduct", "true");
+        formData.append("productPrice", String(Math.floor(parseFloat(productPrice) * 100)));
+        formData.append("productUrl", productUrl);
+      }
+
       for (const file of selectedFiles) {
         formData.append("media", file);
       }
@@ -113,6 +122,9 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       }
       
       setContent("");
+      setIsProduct(false);
+      setProductPrice("");
+      setProductUrl("");
       setSelectedFiles([]);
       
       if (selectedFiles.length > 0) {
@@ -188,27 +200,65 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
           )}
 
           <div className="flex justify-between items-center mt-3 pt-3 border-t">
-            <div className="flex gap-2 text-primary">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                className="hidden" 
-                accept="image/*,video/*"
-                multiple
-              />
-              <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-primary/10 rounded-full transition-colors">
-                <ImageIcon size={20} />
-              </button>
+            <div className="flex flex-col w-full gap-3">
+              {isProduct && (
+                <div className="flex flex-col gap-2 p-3 bg-muted rounded-xl">
+                  <span className="text-sm font-semibold">Product Details</span>
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-2 bg-background rounded-md px-2 flex-1 border">
+                      <span className="text-muted-foreground">$</span>
+                      <input 
+                        type="number"
+                        placeholder="Price (USD)"
+                        value={productPrice}
+                        onChange={(e) => setProductPrice(e.target.value)}
+                        className="bg-transparent border-none outline-none text-sm w-full py-2"
+                        min="1"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                  <input
+                    type="url"
+                    placeholder="Product URL (e.g. Google Drive link)"
+                    value={productUrl}
+                    onChange={(e) => setProductUrl(e.target.value)}
+                    className="bg-background border outline-none text-sm w-full py-2 px-3 rounded-md"
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center w-full">
+                <div className="flex gap-2 text-primary">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileSelect} 
+                    className="hidden" 
+                    accept="image/*,video/*"
+                    multiple
+                  />
+                  <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-primary/10 rounded-full transition-colors" title="Add Media">
+                    <ImageIcon size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setIsProduct(!isProduct)} 
+                    className={`p-2 rounded-full transition-colors ${isProduct ? 'bg-primary/20' : 'hover:bg-primary/10'}`} 
+                    title="Sell a Product"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  </button>
+                </div>
+                
+                <Button 
+                  onClick={handleSubmit} 
+                  disabled={isSubmitting || (!content.trim() && selectedFiles.length === 0) || (isProduct && (!productPrice || !productUrl))}
+                  className="rounded-full px-5"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : "Post"}
+                </Button>
+              </div>
             </div>
-            
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting || (!content.trim() && selectedFiles.length === 0)}
-              className="rounded-full px-5"
-            >
-              {isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : "Post"}
-            </Button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, User } from "lucide-react";
+import { Bell, User, X, Trash2 } from "lucide-react";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import {
   DropdownMenu,
@@ -15,7 +15,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, markAsRead } = useWebSocket();
+  const { notifications, unreadCount, markAsRead, clearNotifications, deleteNotification } = useWebSocket();
   const router = useRouter();
   const [parentRef, setParentRef] = useState<HTMLDivElement | null>(null);
 
@@ -25,6 +25,31 @@ export function NotificationDropdown() {
     estimateSize: () => 76,
     overscan: 5,
   });
+
+  const handleClearAll = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const { deleteAllNotificationsAction } = await import("@/actions/notification.actions");
+      await deleteAllNotificationsAction();
+      clearNotifications();
+    } catch (err) {
+      console.error("Failed to clear notifications", err);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!id) return;
+    try {
+      const { deleteNotificationAction } = await import("@/actions/notification.actions");
+      await deleteNotificationAction(id);
+      deleteNotification(id);
+    } catch (err) {
+      console.error("Failed to delete notification", err);
+    }
+  };
 
   return (
     <DropdownMenu onOpenChange={(open) => open && markAsRead()}>
@@ -38,8 +63,15 @@ export function NotificationDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden">
         <div className="px-3 py-2 text-xs font-medium text-muted-foreground font-bold flex justify-between items-center border-b">
-          <span>Notifications</span>
-          <span className="text-xs font-normal text-muted-foreground">{notifications.length} total</span>
+          <span>Notifications <span className="text-xs font-normal">({notifications.length})</span></span>
+          {notifications.length > 0 && (
+            <button 
+              onClick={handleClearAll}
+              className="text-xs font-normal text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> Clear all
+            </button>
+          )}
         </div>
         
         {notifications.length === 0 ? (
@@ -93,7 +125,7 @@ export function NotificationDropdown() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col w-full overflow-hidden">
+                        <div className="flex flex-col w-full overflow-hidden relative pr-6">
                           <div className="flex justify-between items-start w-full">
                             <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1">
                               <UserNameWithRole 
@@ -110,6 +142,13 @@ export function NotificationDropdown() {
                           {notif.message && (
                             <span className="text-sm text-muted-foreground line-clamp-5 mt-1">{notif.message}</span>
                           )}
+                          <button
+                            className="absolute top-0 right-0 p-1 rounded-full hover:bg-muted pointer-events-auto text-muted-foreground hover:text-foreground"
+                            onClick={(e) => handleDelete(e, notif.id)}
+                            title="Delete notification"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     </div>

@@ -9,6 +9,8 @@ type Repository interface {
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
+	DeleteNotification(notificationID string, userID string) error
+	DeleteAllNotifications(userID string) error
 	GetActorDetails(actorID string) (map[string]interface{}, error)
 }
 
@@ -47,6 +49,14 @@ func (r *repository) MarkAsRead(notificationID string, userID string) error {
 
 func (r *repository) MarkAllAsRead(userID string) error {
 	return r.db.Model(&Notification{}).Where("user_id = ? AND is_read = false", userID).Update("is_read", true).Error
+}
+
+func (r *repository) DeleteNotification(notificationID string, userID string) error {
+	return r.db.Where("id = ? AND user_id = ?", notificationID, userID).Delete(&Notification{}).Error
+}
+
+func (r *repository) DeleteAllNotifications(userID string) error {
+	return r.db.Where("user_id = ?", userID).Delete(&Notification{}).Error
 }
 
 func (r *repository) GetActorDetails(actorID string) (map[string]interface{}, error) {

@@ -39,3 +39,13 @@ export async function markAllNotificationsAsReadAction() {
   const res = await fetchFromGo(`/notifications/read-all`, { method: "PUT" });
   return res.data === "success";
 }
+
+export async function deleteNotificationAction(id: string) {
+  const res = await fetchFromGo(`/notifications/${id}`, { method: "DELETE" });
+  return res.data === "success";
+}
+
+export async function deleteAllNotificationsAction() {
+  const res = await fetchFromGo(`/notifications/delete-all`, { method: "DELETE" });
+  return res.data === "success";
+}

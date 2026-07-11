@@ -25,6 +25,7 @@ type WebSocketContextType = {
   isConnected: boolean;
   notifications: Notification[];
   clearNotifications: () => void;
+  deleteNotification: (id: string) => void;
   unreadCount: number;
   markAsRead: () => void;
 };
@@ -34,6 +35,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
   isConnected: false,
   notifications: [],
   clearNotifications: () => {},
+  deleteNotification: (id: string) => {},
   unreadCount: 0,
   markAsRead: () => {},
 });
@@ -57,7 +59,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             image: n.actor?.image || null,
             role: n.actor?.role || "user",
           },
-          actionText: n.type === "LIKE" ? "liked your post" : n.type === "SYSTEM" ? "Role Upgraded" : "commented",
+          actionText: n.type === "LIKE" ? "liked your post" 
+                    : n.type === "SYSTEM" ? (n.message?.includes("payment was successful") ? "Payment Successful" : "Role Upgraded")
+                    : n.type === "PRODUCT_SALE" ? "purchased your product"
+                    : "commented",
           message: n.type === "LIKE" ? "" : (n.message || ""),
           postId: n.entityId,
           timestamp: new Date(n.createdAt),
@@ -146,7 +151,15 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
     };
   }, [session?.user?.id]);
 
-  const clearNotifications = () => setNotifications([]);
+  const clearNotifications = () => {
+    setNotifications([]);
+    setUnreadCount(0);
+  };
+  
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+  
   const markAsRead = () => {
     setUnreadCount(0);
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
@@ -154,7 +167,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
   };
 
   return (
-    <WebSocketContext.Provider value={{ ws, isConnected, notifications, clearNotifications, markAsRead, unreadCount }}>
+    <WebSocketContext.Provider value={{ ws, isConnected, notifications, clearNotifications, deleteNotification, markAsRead, unreadCount }}>
       {children}
     </WebSocketContext.Provider>
   );

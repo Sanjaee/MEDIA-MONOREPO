@@ -21,6 +21,10 @@ type Post struct {
 	ViewCount      *int       `gorm:"type:integer;default:0" json:"viewCount"`
 	HasLiked       bool       `gorm:"->;type:boolean" json:"hasLiked"`
 	HasBookmarked  bool       `gorm:"->;type:boolean" json:"hasBookmarked"`
+	IsProduct      *bool      `gorm:"type:boolean;default:false" json:"isProduct"`
+	ProductPrice   *int       `gorm:"type:integer" json:"productPrice"`
+	ProductURL     *string    `gorm:"type:text" json:"productUrl,omitempty"`
+	HasBought      bool       `gorm:"->;type:boolean" json:"hasBought"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
 	Media          []Media    `gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;" json:"media,omitempty"`

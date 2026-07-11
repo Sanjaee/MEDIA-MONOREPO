@@ -13,6 +13,12 @@ type CreateAdPaymentRequest struct {
 	Currency string  `json:"currency"`
 }
 
+type CreateProductPaymentRequest struct {
+	PostID   string  `json:"postId" binding:"required"`
+	Amount   float64 `json:"amount" binding:"required"`
+	Currency string  `json:"currency"`
+}
+
 type CreatePendingAdRequest struct {
 	DurationDays int `json:"durationDays" binding:"required"`
 }

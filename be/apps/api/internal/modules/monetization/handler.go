@@ -19,6 +19,7 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.GET("/plisio/currencies", h.GetCurrencies)
 		payment.POST("/plisio/role", h.CreateRolePayment)
 		payment.POST("/plisio/ad", h.CreateAdPayment)
+		payment.POST("/plisio/product", h.CreateProductPayment)
 		payment.POST("/plisio/webhook", h.Webhook)
 		payment.GET("/plisio/verify", h.VerifyOrder)
 	}
@@ -105,6 +106,41 @@ func (h *Handler) CreateAdPayment(c *gin.Context) {
 	}
 
 	tx, invoiceURL, err := h.service.CreatePaymentForAdPlisio(userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": map[string]interface{}{
+			"order_id":  tx.ID,
+			"hostedUrl": invoiceURL,
+		},
+	})
+}
+
+func (h *Handler) CreateProductPayment(c *gin.Context) {
+	// Require Auth
+	authHeader := c.GetHeader("Authorization")
+	var userID string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		userID = authHeader[7:]
+	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
+		userID = xUserId
+	}
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req CreateProductPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tx, invoiceURL, err := h.service.CreatePaymentForProductPlisio(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

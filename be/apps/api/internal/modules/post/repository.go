@@ -39,7 +39,7 @@ func (r *repository) FindByID(userID, id string) (*Post, error) {
 	query := r.db.Preload("Author").Preload("Media")
 
 	if userID != "" {
-		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
 
 	err := query.Where("id = ?", id).First(&post).Error
@@ -66,7 +66,7 @@ func (r *repository) GetLatestFeed(userID string, cursor string, limit int) ([]P
 	query := r.db.Preload("Author").Preload("Media").Where("visibility = ?", "public").Order("created_at DESC, id DESC").Limit(limit + 1)
 	
 	if userID != "" {
-		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
 
 	if cursor != "" {
@@ -93,7 +93,7 @@ func (r *repository) GetTrendingFeed(userID string, cursorScore float64, cursorI
 		Limit(limit + 1)
 
 	if userID != "" {
-		query = query.Select("posts.*, " + scoreExpr + " as score, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, " + scoreExpr + " as score, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	} else {
 		query = query.Select("posts.*, " + scoreExpr + " as score")
 	}
@@ -113,7 +113,7 @@ func (r *repository) GetHotFeed(userID string, cursorScore float64, cursorID str
 	query := r.db.Preload("Author").Preload("Media").Where("visibility = ?", "public").Order("created_at DESC").Limit(limit + 1)
 
 	if userID != "" {
-		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
 
 	err := query.Find(&posts).Error
@@ -130,7 +130,7 @@ func (r *repository) GetMediaFeed(userID string, cursor string, limit int) ([]Po
 		Limit(limit + 1)
 
 	if userID != "" {
-		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
 
 	if cursor != "" {
@@ -154,7 +154,7 @@ func (r *repository) GetSearchFeed(userID string, keyword string, cursor string,
 		Limit(limit + 1)
 
 	if userID != "" {
-		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked", userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
 
 	if cursor != "" {

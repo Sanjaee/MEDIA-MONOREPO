@@ -58,6 +58,21 @@ export async function createPostAction(formData: FormData) {
     newFormData.append("media", file);
   }
 
+  const isProduct = formData.get("isProduct");
+  if (isProduct === "true") {
+    newFormData.append("isProduct", "true");
+    
+    const productPrice = formData.get("productPrice");
+    if (productPrice) {
+      newFormData.append("productPrice", productPrice);
+    }
+    
+    const productUrl = formData.get("productUrl");
+    if (productUrl) {
+      newFormData.append("productUrl", productUrl);
+    }
+  }
+
   const res = await fetch(`${API_URL}/posts`, {
     method: 'POST',
     body: newFormData,
