@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
+import { deleteNotificationAction, deleteAllNotificationsAction } from "@/actions/notification.actions";
 
 export function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, clearNotifications, deleteNotification } = useWebSocket();
@@ -30,7 +31,6 @@ export function NotificationDropdown() {
     e.preventDefault();
     e.stopPropagation();
     try {
-      const { deleteAllNotificationsAction } = await import("@/actions/notification.actions");
       await deleteAllNotificationsAction();
       clearNotifications();
     } catch (err) {
@@ -43,7 +43,6 @@ export function NotificationDropdown() {
     e.stopPropagation();
     if (!id) return;
     try {
-      const { deleteNotificationAction } = await import("@/actions/notification.actions");
       await deleteNotificationAction(id);
       deleteNotification(id);
     } catch (err) {
@@ -66,14 +65,18 @@ export function NotificationDropdown() {
           <span>Notifications <span className="text-xs font-normal">({notifications.length})</span></span>
           {notifications.length > 0 && (
             <button 
-              onClick={handleClearAll}
-              className="text-xs font-normal text-muted-foreground hover:text-foreground flex items-center gap-1"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleClearAll(e);
+              }}
+              className="text-xs font-normal text-muted-foreground hover:text-foreground flex items-center gap-1 z-50 relative"
             >
               <Trash2 className="w-3 h-3" /> Clear all
             </button>
           )}
         </div>
-        
+
         {notifications.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             No new notifications
@@ -102,7 +105,7 @@ export function NotificationDropdown() {
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
-                    <div 
+                    <div
                       role="menuitem"
                       className="flex items-start w-full h-full p-3 hover:bg-muted/50 focus:bg-muted/50 cursor-pointer rounded-none border-b border-border/50 outline-none"
                       onClick={(e) => {
@@ -115,7 +118,7 @@ export function NotificationDropdown() {
                       }}
                       tabIndex={0}
                     >
-                      <div className="flex w-full pointer-events-none gap-3">
+                      <div className="flex w-full gap-3 relative group">
                         <div className="flex-shrink-0">
                           {notif.actor?.image ? (
                             <img src={notif.actor.image} alt={notif.actor.username || "User"} className="w-10 h-10 rounded-full object-cover bg-muted" />
@@ -125,13 +128,13 @@ export function NotificationDropdown() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col w-full overflow-hidden relative pr-6">
+                        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
                           <div className="flex justify-between items-start w-full">
                             <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1">
-                              <UserNameWithRole 
-                                displayName={notif.actor?.username || "Someone"} 
-                                role={notif.actor?.role} 
-                                className="inline-flex" 
+                              <UserNameWithRole
+                                displayName={notif.actor?.username || "Someone"}
+                                role={notif.actor?.role}
+                                className="inline-flex"
                               />
                               <span className="text-muted-foreground">{notif.actionText}</span>
                             </span>
@@ -142,12 +145,18 @@ export function NotificationDropdown() {
                           {notif.message && (
                             <span className="text-sm text-muted-foreground line-clamp-5 mt-1">{notif.message}</span>
                           )}
+                        </div>
+                        <div className="flex-shrink-0 flex items-start">
                           <button
-                            className="absolute top-0 right-0 p-1 rounded-full hover:bg-muted pointer-events-auto text-muted-foreground hover:text-foreground"
-                            onClick={(e) => handleDelete(e, notif.id)}
+                            className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDelete(e, notif.id);
+                            }}
                             title="Delete notification"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

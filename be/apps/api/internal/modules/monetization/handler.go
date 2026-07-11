@@ -22,6 +22,7 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.POST("/plisio/product", h.CreateProductPayment)
 		payment.POST("/plisio/webhook", h.Webhook)
 		payment.GET("/plisio/verify", h.VerifyOrder)
+		payment.GET("/products/sales", h.GetProductSalesStats)
 	}
 
 	ads := router.Group("/ads")
@@ -370,4 +371,20 @@ func getAuthUserID(c *gin.Context) string {
 		return xUserId
 	}
 	return ""
+}
+
+func (h *Handler) GetProductSalesStats(c *gin.Context) {
+	userID := getAuthUserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	stats, err := h.service.GetProductSalesStats(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": stats})
 }

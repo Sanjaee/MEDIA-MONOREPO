@@ -1,6 +1,9 @@
 package monetization
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 type CreateRolePaymentRequest struct {
 	Role     string `json:"role" binding:"required"`
@@ -29,6 +32,30 @@ type SetupAdSlotRequest struct {
 	ImageURL    string `json:"imageUrl" binding:"required"`
 	MediaType   string `json:"mediaType"`
 	LinkURL     string `json:"linkUrl" binding:"required"`
+}
+
+// Product Sales
+type ProductSalesStats struct {
+	TotalRevenue      int          `json:"totalRevenue"`
+	TotalTransactions int          `json:"totalTransactions"`
+	Products          []SoldProduct `json:"products"`
+}
+
+type SoldProduct struct {
+	PostID      string        `json:"postId"`
+	Content     string        `json:"content"`
+	Price       int           `json:"price"`
+	SalesCount  int           `json:"salesCount"`
+	TotalEarned int           `json:"totalEarned"`
+	Buyers      []BuyerDetail `json:"buyers"`
+}
+
+type BuyerDetail struct {
+	UserID    string    `json:"userId"`
+	Username  string    `json:"username"`
+	AvatarURL string    `json:"avatarUrl"`
+	Amount    int       `json:"amount"`
+	PurchasedAt time.Time `json:"purchasedAt"`
 }
 
 // Plisio types for crypto payment

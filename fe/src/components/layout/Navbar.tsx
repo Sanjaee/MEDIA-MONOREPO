@@ -6,6 +6,7 @@ import { UserDropdown } from "@/components/auth/UserDropdown"
 import { NavbarSearch } from "@/components/layout/NavbarSearch"
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown"
 import { CreatePostModal } from "@/components/feed/CreatePostModal"
+import { Store } from "lucide-react"
 
 export async function Navbar() {
   const session = await auth()
@@ -29,6 +30,9 @@ export async function Navbar() {
         <div className="flex items-center justify-end gap-3 md:gap-4 min-w-fit">
           {session?.user ? (
             <>
+              <Link href="/products/sales" className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 dark:hover:bg-gray-800 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <Store size={20} />
+              </Link>
               <NotificationDropdown />
               <UserDropdown user={session.user} />
             </>

@@ -43,6 +43,8 @@ type Service interface {
 	GetActiveAds() ([]AdSlot, error)
 	UpdateAdSlotDetails(userID, adID string, req SetupAdSlotRequest, tempFilePath string) (*AdSlot, error)
 	DeleteAdSlot(userID, adID string) error
+
+	GetProductSalesStats(userID string) (*ProductSalesStats, error)
 }
 
 type service struct {
@@ -979,3 +981,52 @@ func (s *service) DeleteAdSlot(userID, adID string) error {
 	return s.repo.DeleteAdSlot(adID)
 }
 
+func (s *service) GetProductSalesStats(userID string) (*ProductSalesStats, error) {
+	rows, err := s.repo.GetProductSalesRows(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	totalRevenue := 0
+	totalTransactions := len(rows)
+
+	productMap := make(map[string]*SoldProduct)
+
+	for _, row := range rows {
+		totalRevenue += row.Amount
+
+		if _, exists := productMap[row.PostID]; !exists {
+			productMap[row.PostID] = &SoldProduct{
+				PostID:      row.PostID,
+				Content:     row.Content,
+				Price:       row.Price,
+				SalesCount:  0,
+				TotalEarned: 0,
+				Buyers:      []BuyerDetail{},
+			}
+		}
+
+		p := productMap[row.PostID]
+		p.SalesCount++
+		p.TotalEarned += row.Amount
+
+		p.Buyers = append(p.Buyers, BuyerDetail{
+			UserID:      row.BuyerID,
+			Username:    row.BuyerName,
+			AvatarURL:   row.BuyerAvatar,
+			Amount:      row.Amount,
+			PurchasedAt: row.PurchasedAt,
+		})
+	}
+
+	var products []SoldProduct
+	for _, p := range productMap {
+		products = append(products, *p)
+	}
+
+	return &ProductSalesStats{
+		TotalRevenue:      totalRevenue,
+		TotalTransactions: totalTransactions,
+		Products:          products,
+	}, nil
+}

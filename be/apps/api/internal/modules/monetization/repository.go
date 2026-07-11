@@ -1,6 +1,7 @@
 package monetization
 
 import (
+	"time"
 	"gorm.io/gorm"
 )
 
@@ -18,6 +19,19 @@ type Repository interface {
 	FindPendingSetupAdSlots(userID string) ([]AdSlot, error)
 	FindActiveAdSlots() ([]AdSlot, error)
 	DeleteAdSlot(id string) error
+
+	GetProductSalesRows(sellerID string) ([]ProductPurchaseRow, error)
+}
+
+type ProductPurchaseRow struct {
+	PostID      string
+	Content     string
+	Price       int
+	Amount      int
+	BuyerID     string
+	BuyerName   string
+	BuyerAvatar string
+	PurchasedAt time.Time
 }
 
 type repository struct {
@@ -106,5 +120,27 @@ func (r *repository) FindActiveAdSlots() ([]AdSlot, error) {
 }
 
 func (r *repository) DeleteAdSlot(id string) error {
-	return r.db.Where("id = ?", id).Delete(&AdSlot{}).Error
+	return r.db.Delete(&AdSlot{}, "id = ?", id).Error
+}
+
+func (r *repository) GetProductSalesRows(sellerID string) ([]ProductPurchaseRow, error) {
+	var rows []ProductPurchaseRow
+	query := `
+		SELECT 
+			p.id as post_id,
+			p.content,
+			p.product_price as price,
+			pp.amount,
+			u.id as buyer_id,
+			u.username as buyer_name,
+			u.image as buyer_avatar,
+			pp.created_at as purchased_at
+		FROM product_purchases pp
+		JOIN posts p ON pp.post_id = p.id
+		JOIN users u ON pp.user_id = u.id
+		WHERE p.author_id = ?
+		ORDER BY pp.created_at DESC
+	`
+	err := r.db.Raw(query, sellerID).Scan(&rows).Error
+	return rows, err
 }
