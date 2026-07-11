@@ -11,6 +11,7 @@ type Service interface {
 	CreateLikeNotification(userID, actorID, postID string) error
 	CreateCommentNotification(userID, actorID, postID, commentText string) error
 	CreateRoleUpgradeNotification(userID, roleName string) error
+	CreateAdPaymentSuccessNotification(userID string) error
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
@@ -154,6 +155,44 @@ func (s *service) CreateRoleUpgradeNotification(userID, roleName string) error {
 		"actorUsername": "System",
 		"actorImage":    nil,
 		"actionText":    "Role Upgraded",
+		"message":       message,
+		"postId":        "",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
+
+	return nil
+}
+
+func (s *service) CreateAdPaymentSuccessNotification(userID string) error {
+	nType := "SYSTEM"
+	isRead := false
+	message := "Your Premium Ad Slot payment was successful! You can now set up your ad."
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  userID, // System or self
+		Type:     &nType,
+		Message:  &message,
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	// Push via websocket
+	payload := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Payment Successful",
 		"message":       message,
 		"postId":        "",
 	}

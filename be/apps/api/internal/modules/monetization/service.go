@@ -22,6 +22,9 @@ import (
 	"gorm.io/gorm"
 	"media-api/internal/cache"
 	"media-api/internal/modules/notification"
+	"media-api/internal/config"
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 )
 
 const plisioBaseURL = "https://api.plisio.net/api/v1"
@@ -32,6 +35,13 @@ type Service interface {
 	HandlePlisioWebhook(payload []byte) error
 	GetPlisioCurrencies() ([]PlisioCurrency, error)
 	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
+
+	CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error)
+	GetPendingAdSlots(userID string) ([]AdSlot, error)
+	SetupAdSlot(userID, adID string, req SetupAdSlotRequest, tempFilePath string) (*AdSlot, error)
+	GetActiveAds() ([]AdSlot, error)
+	UpdateAdSlotDetails(userID, adID string, req SetupAdSlotRequest, tempFilePath string) (*AdSlot, error)
+	DeleteAdSlot(userID, adID string) error
 }
 
 type service struct {
@@ -539,8 +549,11 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 			var ad AdSlot
 			if err := s.db.Where("transaction_id = ?", tx.ID).First(&ad).Error; err == nil {
 				s.repo.UpdateAdSlot(ad.ID, map[string]interface{}{
-					"status": "active",
+					"status": "pending_setup",
 				})
+			}
+			if s.notifService != nil {
+				_ = s.notifService.CreateAdPaymentSuccessNotification(tx.UserID)
 			}
 		} else {
 			// Upgrade User Role
@@ -661,8 +674,11 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 		var ad AdSlot
 		if err := s.db.Where("transaction_id = ?", tx.ID).First(&ad).Error; err == nil {
 			s.repo.UpdateAdSlot(ad.ID, map[string]interface{}{
-				"status": "active",
+				"status": "pending_setup",
 			})
+		}
+		if s.notifService != nil {
+			_ = s.notifService.CreateAdPaymentSuccessNotification(tx.UserID)
 		}
 	} else {
 		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.Role, tx.UserID)
@@ -674,4 +690,165 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 	}
 
 	return &tx, "success", nil
+}
+
+func (s *service) CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error) {
+	status := "pending_payment"
+	id := fmt.Sprintf("AD_%s", uuid.New().String())
+	ad := &AdSlot{
+		ID:           id,
+		UserID:       userID,
+		DurationDays: &durationDays,
+		Status:       &status,
+	}
+	if err := s.repo.CreateAdSlot(ad); err != nil {
+		return nil, err
+	}
+	return ad, nil
+}
+
+func (s *service) GetPendingAdSlots(userID string) ([]AdSlot, error) {
+	return s.repo.FindPendingSetupAdSlots(userID)
+}
+
+func (s *service) SetupAdSlot(userID, adID string, req SetupAdSlotRequest, tempFilePath string) (*AdSlot, error) {
+	ad, err := s.repo.FindAdSlotByID(adID)
+	if err != nil {
+		return nil, fmt.Errorf("ad slot not found")
+	}
+	if ad.UserID != userID {
+		return nil, fmt.Errorf("unauthorized")
+	}
+	if ad.Status == nil || *ad.Status != "pending_setup" {
+		return nil, fmt.Errorf("ad slot is not ready for setup")
+	}
+
+	// Upload to Cloudinary if temp file exists
+	var uploadedURL string
+	if tempFilePath != "" {
+		env := config.LoadConfig()
+		cld, err := cloudinary.NewFromParams(env.CloudinaryCloudName, env.CloudinaryAPIKey, env.CloudinaryAPISecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init cloudinary: %v", err)
+		}
+		
+		uploadParams := uploader.UploadParams{
+			Folder: "ads",
+		}
+		if req.MediaType == "video" {
+			uploadParams.ResourceType = "video"
+		} else {
+			uploadParams.ResourceType = "image"
+		}
+		
+		resp, err := cld.Upload.Upload(context.Background(), tempFilePath, uploadParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to upload media: %v", err)
+		}
+		uploadedURL = resp.SecureURL
+	} else {
+		return nil, fmt.Errorf("media file is required")
+	}
+
+	status := "active"
+	now := time.Now()
+	days := 1
+	if ad.DurationDays != nil {
+		days = *ad.DurationDays
+	}
+	until := now.Add(time.Duration(days) * 24 * time.Hour)
+	
+	mediaType := "image"
+	if req.MediaType != "" {
+		mediaType = req.MediaType
+	}
+
+	updates := map[string]interface{}{
+		"title":        req.Title,
+		"description":  req.Description,
+		"image_url":    uploadedURL,
+		"media_type":   mediaType,
+		"link_url":     req.LinkURL,
+		"status":       status,
+		"active_from":  now,
+		"active_until": until,
+	}
+
+	if err := s.repo.UpdateAdSlot(adID, updates); err != nil {
+		return nil, err
+	}
+	return s.repo.FindAdSlotByID(adID)
+}
+
+func (s *service) GetActiveAds() ([]AdSlot, error) {
+	return s.repo.FindActiveAdSlots()
+}
+
+func (s *service) UpdateAdSlotDetails(userID, adID string, req SetupAdSlotRequest, tempFilePath string) (*AdSlot, error) {
+	ad, err := s.repo.FindAdSlotByID(adID)
+	if err != nil {
+		return nil, fmt.Errorf("ad slot not found")
+	}
+	if ad.UserID != userID {
+		return nil, fmt.Errorf("unauthorized")
+	}
+	if ad.Status == nil || *ad.Status != "active" {
+		return nil, fmt.Errorf("ad slot is not active")
+	}
+
+	// Upload to Cloudinary if temp file exists
+	var uploadedURL string
+	if tempFilePath != "" {
+		env := config.LoadConfig()
+		cld, err := cloudinary.NewFromParams(env.CloudinaryCloudName, env.CloudinaryAPIKey, env.CloudinaryAPISecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init cloudinary: %v", err)
+		}
+		
+		uploadParams := uploader.UploadParams{
+			Folder: "ads",
+		}
+		if req.MediaType == "video" {
+			uploadParams.ResourceType = "video"
+		} else {
+			uploadParams.ResourceType = "image"
+		}
+		
+		resp, err := cld.Upload.Upload(context.Background(), tempFilePath, uploadParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to upload media: %v", err)
+		}
+		uploadedURL = resp.SecureURL
+	} else {
+		// Keep the existing one if no new file is uploaded
+		uploadedURL = *ad.ImageURL
+	}
+
+	mediaType := "image"
+	if req.MediaType != "" {
+		mediaType = req.MediaType
+	}
+
+	updates := map[string]interface{}{
+		"title":       req.Title,
+		"image_url":   uploadedURL,
+		"media_type":  mediaType,
+		"link_url":    req.LinkURL,
+	}
+
+	if err := s.repo.UpdateAdSlot(adID, updates); err != nil {
+		return nil, err
+	}
+	return s.repo.FindAdSlotByID(adID)
+}
+
+func (s *service) DeleteAdSlot(userID, adID string) error {
+	ad, err := s.repo.FindAdSlotByID(adID)
+	if err != nil {
+		return fmt.Errorf("ad slot not found")
+	}
+	if ad.UserID != userID {
+		return fmt.Errorf("unauthorized")
+	}
+	return s.repo.DeleteAdSlot(adID)
 }

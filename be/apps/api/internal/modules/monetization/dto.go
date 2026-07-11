@@ -13,6 +13,18 @@ type CreateAdPaymentRequest struct {
 	Currency string  `json:"currency"`
 }
 
+type CreatePendingAdRequest struct {
+	DurationDays int `json:"durationDays" binding:"required"`
+}
+
+type SetupAdSlotRequest struct {
+	Title       string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	ImageURL    string `json:"imageUrl" binding:"required"`
+	MediaType   string `json:"mediaType"`
+	LinkURL     string `json:"linkUrl" binding:"required"`
+}
+
 // Plisio types for crypto payment
 type PlisioInvoiceResponse struct {
 	Status string          `json:"status"`

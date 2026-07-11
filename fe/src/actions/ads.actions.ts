@@ -3,9 +3,59 @@
 import { auth } from "@/auth";
 
 
-export async function getMyPendingAds() { return []; }
-export async function submitAdDetails(...args: any[]) { return { success: true }; }
-export async function getActiveAds() { return []; }
+export async function getMyPendingAds() {
+  const session = await auth();
+  if (!session?.user) return [];
+  const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
+  const res = await fetch(`${baseUrl}/ads/pending`, {
+    headers: { "X-User-Id": session.user.id || "" },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function getMyActiveAdsAction() {
+  const session = await auth();
+  if (!session?.user) return [];
+  const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
+  const res = await fetch(`${baseUrl}/ads/active`, {
+    headers: { "X-User-Id": session.user.id || "" },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  // filter by user id
+  return (data.data || []).filter((ad: any) => ad.userId === session.user?.id);
+}
+
+export async function getActiveAds() {
+  const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
+  const res = await fetch(`${baseUrl}/ads/active`, {
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  return data.data || [];
+}
+
+export async function createPendingAdAction(durationDays: number = 1) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
+  const res = await fetch(`${baseUrl}/ads/`, {
+    method: "POST",
+    headers: { 
+      "X-User-Id": session.user.id || "",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ durationDays })
+  });
+  if (!res.ok) throw new Error("Failed to create pending ad");
+  const data = await res.json();
+  return data.data;
+}
 
 // Plisio Integration for Ads
 

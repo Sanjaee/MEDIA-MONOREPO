@@ -15,6 +15,9 @@ type Repository interface {
 	CreateAdSlot(ad *AdSlot) error
 	UpdateAdSlot(id string, updates map[string]interface{}) error
 	FindAdSlotByID(id string) (*AdSlot, error)
+	FindPendingSetupAdSlots(userID string) ([]AdSlot, error)
+	FindActiveAdSlots() ([]AdSlot, error)
+	DeleteAdSlot(id string) error
 }
 
 type repository struct {
@@ -87,4 +90,21 @@ func (r *repository) FindAdSlotByID(id string) (*AdSlot, error) {
 		return nil, err
 	}
 	return &ad, nil
+}
+
+func (r *repository) FindPendingSetupAdSlots(userID string) ([]AdSlot, error) {
+	var ads []AdSlot
+	err := r.db.Where("user_id = ? AND status = ?", userID, "pending_setup").Order("created_at desc").Find(&ads).Error
+	return ads, err
+}
+
+func (r *repository) FindActiveAdSlots() ([]AdSlot, error) {
+	var ads []AdSlot
+	// Active ads are those with status='active' and active_until > now()
+	err := r.db.Where("status = ? AND active_until > NOW()", "active").Order("active_from desc").Find(&ads).Error
+	return ads, err
+}
+
+func (r *repository) DeleteAdSlot(id string) error {
+	return r.db.Where("id = ?", id).Delete(&AdSlot{}).Error
 }
