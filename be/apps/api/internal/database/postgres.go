@@ -60,6 +60,7 @@ func Migrate(db *gorm.DB) {
 		&monetization.Transaction{},
 		&monetization.AdSlot{},
 		&monetization.ProductPurchase{},
+		&monetization.Withdrawal{},
 
 		// Chat
 		&chat.Conversation{},

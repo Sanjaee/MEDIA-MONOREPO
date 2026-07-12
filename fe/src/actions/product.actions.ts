@@ -19,10 +19,54 @@ async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch from Go API: ${res.statusText}`);
+    let errorMsg = res.statusText;
+    try {
+      const errorData = await res.json();
+      if (errorData && errorData.error) {
+        errorMsg = errorData.error;
+      }
+    } catch (e) {}
+    throw new Error(errorMsg);
   }
 
   return res.json();
+}
+
+export async function withdrawEarningsAction(currency: string, address: string, amountUsd: number) {
+  try {
+    const res = await fetchFromGo("/payment/products/withdraw", {
+      method: "POST",
+      body: JSON.stringify({
+        currency,
+        toAddress: address,
+        amountCents: Math.floor(amountUsd * 100)
+      })
+    });
+    
+    if (!res || !res.success) {
+      return { success: false, error: res?.error || "Failed to process withdrawal" };
+    }
+    
+    return { success: true, data: res.data };
+  } catch (error: any) {
+    console.error("Failed to withdraw:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getWithdrawalHistoryAction() {
+  try {
+    const res = await fetchFromGo("/payment/products/withdraw/history", {
+      method: "GET",
+    });
+    if (!res || !res.success) {
+      return [];
+    }
+    return res.data || [];
+  } catch (error) {
+    console.error("Failed to fetch withdrawal history:", error);
+    return [];
+  }
 }
 
 export type BuyerDetail = {
@@ -43,9 +87,20 @@ export type SoldProduct = {
 };
 
 export type ProductSalesStats = {
+  availableBalance: number;
+  totalWithdrawn: number;
   totalRevenue: number;
   totalTransactions: number;
   products: SoldProduct[];
+};
+
+export type WithdrawalHistoryItem = {
+  id: string;
+  amountCents: number;
+  currency: string;
+  toAddress: string;
+  status: string;
+  createdAt: string;
 };
 
 export async function getProductSalesStatsAction(): Promise<ProductSalesStats | null> {

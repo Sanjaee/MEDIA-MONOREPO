@@ -34,10 +34,18 @@ type SetupAdSlotRequest struct {
 	LinkURL     string `json:"linkUrl" binding:"required"`
 }
 
+type WithdrawRequest struct {
+	Currency    string `json:"currency" binding:"required"`
+	ToAddress   string `json:"toAddress" binding:"required"`
+	AmountCents int    `json:"amountCents" binding:"required"`
+}
+
 // Product Sales
 type ProductSalesStats struct {
-	TotalRevenue      int          `json:"totalRevenue"`
-	TotalTransactions int          `json:"totalTransactions"`
+	AvailableBalance  int           `json:"availableBalance"`
+	TotalWithdrawn    int           `json:"totalWithdrawn"`
+	TotalRevenue      int           `json:"totalRevenue"`
+	TotalTransactions int           `json:"totalTransactions"`
 	Products          []SoldProduct `json:"products"`
 }
 

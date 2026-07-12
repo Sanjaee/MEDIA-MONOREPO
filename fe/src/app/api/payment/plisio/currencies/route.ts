@@ -20,39 +20,26 @@ export interface PlisioCurrency {
 
 export async function GET() {
   try {
-    const apiKey = getPlisioApiKey();
-    const baseUrl = getPlisioBaseUrl();
-
-    const response = await axios.get<{
-      status: string;
-      data?: PlisioCurrency[];
-      message?: string;
-    }>(`${baseUrl}/currencies`, {
-      params: { api_key: apiKey },
-      headers: { 'Content-Type': 'application/json' },
+    const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
+    
+    const res = await fetch(`${baseUrl}/payment/plisio/currencies`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      },
+      cache: "no-store"
     });
 
-    const result = response.data;
-
-    if (result.status !== 'success' || !result.data) {
-      return NextResponse.json({
-        success: false,
-        error: (result as any).data?.message || result.message || 'Failed to get currencies',
-      }, { status: 400 });
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Backend returned error:', errorText);
+      return NextResponse.json({ success: false, error: `Failed to fetch currencies from backend: ${errorText}` }, { status: 500 });
     }
 
-    const currencies = result.data.filter(
-      (c) => !c.hidden && !c.maintenance
-    );
-
-    return NextResponse.json({ success: true, data: currencies }, { status: 200 });
+    const data = await res.json();
+    return NextResponse.json(data, { status: 200 });
   } catch (error: any) {
-    console.error('Plisio currencies error:', error);
-    const message =
-      error.response?.data?.data?.message ||
-      error.response?.data?.message ||
-      error.message ||
-      'Failed to get currencies';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('Plisio currencies error:', error.message || error);
+    return NextResponse.json({ success: false, error: 'Failed to get currencies' }, { status: 500 });
   }
 }

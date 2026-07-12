@@ -44,3 +44,16 @@ type ProductPurchase struct {
 	Amount        int       `gorm:"type:integer;not null" json:"amount"`
 	CreatedAt     time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 }
+
+type Withdrawal struct {
+	ID          string    `gorm:"primaryKey;type:varchar" json:"id"`
+	UserID      string    `gorm:"type:varchar;not null" json:"userId"`
+	AmountCents int       `gorm:"type:integer;not null" json:"amountCents"`
+	Currency    string    `gorm:"type:varchar;not null" json:"currency"`
+	ToAddress   string    `gorm:"type:varchar;not null" json:"toAddress"`
+	Status      string    `gorm:"type:varchar;default:'pending'" json:"status"`
+	PlisioTxnID *string   `gorm:"type:varchar" json:"plisioTxnId"`
+	TxURL       *string   `gorm:"type:varchar" json:"txUrl"`
+	CreatedAt   time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+}

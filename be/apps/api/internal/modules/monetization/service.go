@@ -45,6 +45,8 @@ type Service interface {
 	DeleteAdSlot(userID, adID string) error
 
 	GetProductSalesStats(userID string) (*ProductSalesStats, error)
+	WithdrawProductEarnings(userID string, req WithdrawRequest) (*Withdrawal, error)
+	GetWithdrawalHistory(userID string) ([]Withdrawal, error)
 }
 
 type service struct {
@@ -264,18 +266,29 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 		return nil, err
 	}
 	var wrap struct {
-		Status string              `json:"status"`
-		Data   []PlisioCurrencyRaw `json:"data"`
+		Status string          `json:"status"`
+		Data   json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &wrap); err != nil {
 		return nil, err
 	}
 	if wrap.Status != "success" {
-		return nil, fmt.Errorf("plisio API error: %s", wrap.Status)
+		var errorData struct {
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(wrap.Data, &errorData); err == nil && errorData.Message != "" {
+			return nil, fmt.Errorf("plisio API error: %s", errorData.Message)
+		}
+		return nil, fmt.Errorf("plisio API error: %s", string(wrap.Data))
+	}
+
+	var currenciesData []PlisioCurrencyRaw
+	if err := json.Unmarshal(wrap.Data, &currenciesData); err != nil {
+		return nil, fmt.Errorf("failed to parse currencies: %v", err)
 	}
 
 	var out []PlisioCurrency
-	for _, c := range wrap.Data {
+	for _, c := range currenciesData {
 		if c.Hidden != nil {
 			if h, ok := c.Hidden.(float64); ok && h != 0 {
 				continue
@@ -338,7 +351,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	case "mod":
 		amountUSD = 1.0
 	case "god":
-		amountUSD = 1.0
+		amountUSD = 0.90
 	default:
 		return nil, "", fmt.Errorf("invalid role")
 	}
@@ -1024,9 +1037,128 @@ func (s *service) GetProductSalesStats(userID string) (*ProductSalesStats, error
 		products = append(products, *p)
 	}
 
+	totalWithdrawn, err := s.repo.GetTotalWithdrawnByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	availableBalance := totalRevenue - totalWithdrawn
+
 	return &ProductSalesStats{
 		TotalRevenue:      totalRevenue,
 		TotalTransactions: totalTransactions,
 		Products:          products,
+		TotalWithdrawn:    totalWithdrawn,
+		AvailableBalance:  availableBalance,
 	}, nil
+}
+
+func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*Withdrawal, error) {
+	if req.AmountCents < 100 {
+		return nil, fmt.Errorf("minimum withdrawal amount is $1.00")
+	}
+
+	stats, err := s.GetProductSalesStats(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.AmountCents > stats.AvailableBalance {
+		return nil, fmt.Errorf("insufficient balance")
+	}
+
+	currencies, err := s.GetPlisioCurrencies()
+	if err != nil {
+		return nil, err
+	}
+
+	var targetCurrency *PlisioCurrency
+	for _, c := range currencies {
+		if c.Currency == req.Currency || c.Cid == req.Currency {
+			targetCurrency = &c
+			break
+		}
+	}
+
+	if targetCurrency == nil {
+		return nil, fmt.Errorf("unsupported currency: %s", req.Currency)
+	}
+
+	priceUsdFloat, err := strconv.ParseFloat(targetCurrency.PriceUsd, 64)
+	if err != nil || priceUsdFloat <= 0 {
+		return nil, fmt.Errorf("invalid exchange rate for %s", req.Currency)
+	}
+
+	usdAmountFloat := float64(req.AmountCents) / 100.0
+	cryptoAmount := usdAmountFloat / priceUsdFloat
+	cryptoAmountStr := strconv.FormatFloat(cryptoAmount, 'f', 8, 64)
+
+	w := &Withdrawal{
+		ID:          uuid.New().String(),
+		UserID:      userID,
+		AmountCents: req.AmountCents,
+		Currency:    req.Currency,
+		ToAddress:   req.ToAddress,
+		Status:      "pending",
+	}
+
+	if err := s.repo.CreateWithdrawal(w); err != nil {
+		return nil, err
+	}
+
+	u := fmt.Sprintf("%s/operations/withdraw?currency=%s&type=cash_out&to=%s&amount=%s&feePlan=normal&api_key=%s",
+		plisioBaseURL,
+		url.QueryEscape(targetCurrency.Currency),
+		url.QueryEscape(req.ToAddress),
+		url.QueryEscape(cryptoAmountStr),
+		url.QueryEscape(s.plisioAPIKey),
+	)
+
+	reqAPI, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(reqAPI)
+	if err != nil {
+		s.db.Model(w).Update("status", "error")
+		return nil, fmt.Errorf("failed to call plisio api: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var plisioResp struct {
+		Status string `json:"status"`
+		Data   struct {
+			ID      string `json:"id"`
+			TxURL   string `json:"tx_url"`
+			Message string `json:"message"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &plisioResp); err != nil {
+		return nil, err
+	}
+
+	if plisioResp.Status == "error" || plisioResp.Status == "" {
+		s.db.Model(w).Update("status", "error")
+		return nil, fmt.Errorf("plisio withdrawal error: %s", plisioResp.Data.Message)
+	}
+
+	s.db.Model(w).Updates(map[string]interface{}{
+		"status":        "completed",
+		"plisio_txn_id": plisioResp.Data.ID,
+		"tx_url":        plisioResp.Data.TxURL,
+	})
+
+	return w, nil
+}
+
+func (s *service) GetWithdrawalHistory(userID string) ([]Withdrawal, error) {
+	return s.repo.GetWithdrawalsByUserID(userID)
 }

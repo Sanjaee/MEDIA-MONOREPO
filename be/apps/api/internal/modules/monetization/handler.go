@@ -23,6 +23,8 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.POST("/plisio/webhook", h.Webhook)
 		payment.GET("/plisio/verify", h.VerifyOrder)
 		payment.GET("/products/sales", h.GetProductSalesStats)
+		payment.POST("/products/withdraw", h.WithdrawProductEarnings)
+		payment.GET("/products/withdraw/history", h.GetWithdrawalHistory)
 	}
 
 	ads := router.Group("/ads")
@@ -387,4 +389,42 @@ func (h *Handler) GetProductSalesStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": stats})
+}
+
+func (h *Handler) WithdrawProductEarnings(c *gin.Context) {
+	userID := getAuthUserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req WithdrawRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	withdrawal, err := h.service.WithdrawProductEarnings(userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": withdrawal})
+}
+
+func (h *Handler) GetWithdrawalHistory(c *gin.Context) {
+	userID := getAuthUserID(c)
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	history, err := h.service.GetWithdrawalHistory(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": history})
 }

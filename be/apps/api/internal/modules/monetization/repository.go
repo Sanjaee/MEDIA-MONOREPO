@@ -21,6 +21,9 @@ type Repository interface {
 	DeleteAdSlot(id string) error
 
 	GetProductSalesRows(sellerID string) ([]ProductPurchaseRow, error)
+	CreateWithdrawal(w *Withdrawal) error
+	GetTotalWithdrawnByUserID(userID string) (int, error)
+	GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
 }
 
 type ProductPurchaseRow struct {
@@ -143,4 +146,23 @@ func (r *repository) GetProductSalesRows(sellerID string) ([]ProductPurchaseRow,
 	`
 	err := r.db.Raw(query, sellerID).Scan(&rows).Error
 	return rows, err
+}
+
+func (r *repository) CreateWithdrawal(w *Withdrawal) error {
+	return r.db.Create(w).Error
+}
+
+func (r *repository) GetTotalWithdrawnByUserID(userID string) (int, error) {
+	var total int
+	err := r.db.Model(&Withdrawal{}).
+		Where("user_id = ? AND status != ?", userID, "error").
+		Select("COALESCE(SUM(amount_cents), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+func (r *repository) GetWithdrawalsByUserID(userID string) ([]Withdrawal, error) {
+	var withdrawals []Withdrawal
+	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&withdrawals).Error
+	return withdrawals, err
 }
