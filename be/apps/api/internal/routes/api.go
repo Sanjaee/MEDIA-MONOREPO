@@ -13,10 +13,11 @@ import (
 	"media-api/internal/modules/monetization"
 	"media-api/internal/modules/notification"
 	"media-api/internal/modules/post"
+	"media-api/internal/storage"
 	"media-api/internal/websocket"
 )
 
-func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
+func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.Engine {
 	r := gin.Default()
 
 	// Hub is now passed from main.go
@@ -58,7 +59,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub) *gin.Engine {
 		backendURL = "http://localhost:8080"
 	}
 	
-	monetizationService := monetization.NewService(monetizationRepo, db, notificationService, plisioAPIKey, appURL, backendURL)
+	monetizationService := monetization.NewService(monetizationRepo, db, notificationService, store, plisioAPIKey, appURL, backendURL)
 
 	monetizationHandler := monetization.NewHandler(monetizationService)
 

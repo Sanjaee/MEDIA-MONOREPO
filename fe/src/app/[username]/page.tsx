@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, Home, Settings, Megaphone, Check } from "lucide-react";
 import { getCloudinaryUrl } from "@/lib/utils";
+import { getRoleBadge, getRoleNameClass, getRoleDisplayName } from "@/utils/roleStyles";
 
 interface PageProps {
   params: {
@@ -63,12 +64,16 @@ export default async function UserProfilePage({ params }: PageProps) {
         </div>
 
         <div className="flex flex-col justify-center gap-0.5">
-          <div className="flex items-center gap-1">
-            {isVip && !user.isBanned && <Star size={14} className="text-[#00ff00] fill-[#00ff00]" />}
-            <h1 className={`text-lg font-bold shadow-sm ${user.isBanned ? 'text-white' : nameColor}`} style={{ textShadow: "1px 1px 1px #000" }}>{user.name}</h1>
+          <div className="flex items-center gap-1.5">
+            {!user.isBanned && user.role && (
+              <span className={getRoleBadge(user.role)} style={{ transform: "scale(1.2)", transformOrigin: "left center" }} />
+            )}
+            <h1 className={`text-xl font-bold shadow-sm ${user.isBanned ? 'text-white' : getRoleNameClass(user.role || 'member')}`} style={{ textShadow: "1px 1px 1px #000" }}>
+              {user.name}
+            </h1>
           </div>
           <div className="text-[11px] text-[#ccc] font-semibold mt-0.5" style={{ textShadow: "1px 1px 1px #000" }}>
-            {user.isBanned ? "Banned" : user.role === "admin" ? "Administrator" : isVip ? "VIP User" : "Member"}
+            {user.isBanned ? "Banned" : getRoleDisplayName(user.role || 'member')}
           </div>
           <div className="text-[11px] mt-1 flex flex-wrap items-center gap-2" style={{ textShadow: "1px 1px 1px #000" }}>
             <div>

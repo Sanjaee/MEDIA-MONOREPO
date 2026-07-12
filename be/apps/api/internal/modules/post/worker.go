@@ -8,16 +8,22 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"net/http"
+	"path/filepath"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
+	_ "image/gif"
+
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
+	"media-api/internal/storage"
 	"media-api/internal/websocket"
 )
 
-func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, cld *cloudinary.Cloudinary) func(context.Context, *asynq.Task) error {
+func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) func(context.Context, *asynq.Task) error {
 	return func(ctx context.Context, t *asynq.Task) error {
 		var payload struct {
 			PostID    string   `json:"post_id"`
@@ -28,51 +34,88 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, cld *cloudinary.Cloudin
 			return fmt.Errorf("json.Unmarshal failed: %v", err)
 		}
 
-		if cld == nil {
-			return fmt.Errorf("cloudinary is not initialized")
+		if store == nil {
+			return fmt.Errorf("storage is not initialized")
 		}
 
 		var uploadedMedia []Media
 
 		// Upload each file
 		for i, tempFile := range payload.TempFiles {
-			resp, err := cld.Upload.Upload(ctx, tempFile, uploader.UploadParams{
-				Folder:       "media_app_posts",
-				ResourceType: "auto",
-			})
-
+			file, err := os.Open(tempFile)
 			if err != nil {
-				log.Printf("Failed to upload %s: %v", tempFile, err)
+				log.Printf("Failed to open %s: %v", tempFile, err)
 				continue
 			}
 
+			// Detect content type
+			buffer := make([]byte, 512)
+			_, _ = file.Read(buffer)
+			file.Seek(0, 0)
+			contentType := http.DetectContentType(buffer)
+
 			mediaType := "image"
-			if strings.HasPrefix(resp.ResourceType, "video") {
+			if strings.HasPrefix(contentType, "video") {
 				mediaType = "video"
 			}
 
-			media := Media{
-				ID:        uuid.New().String(),
-				PostID:    payload.PostID,
-				Type:      mediaType,
-				URL:       resp.SecureURL,
-				PublicID:  &resp.PublicID,
-				Format:    &resp.Format,
-				Bytes:     &resp.Bytes,
-				SortOrder: func(i int) *int { return &i }(i),
+			// Try to detect dimensions
+			var width, height *int
+			if mediaType == "image" {
+				if cfg, _, err := image.DecodeConfig(file); err == nil {
+					w := cfg.Width
+					h := cfg.Height
+					width = &w
+					height = &h
+				}
+				file.Seek(0, 0)
 			}
 
-			if resp.Width > 0 {
-				media.Width = &resp.Width
+			// Generate a unique key for R2
+			fileExt := filepath.Ext(tempFile)
+			if fileExt == "" && mediaType == "image" {
+				if strings.Contains(contentType, "jpeg") {
+					fileExt = ".jpg"
+				} else if strings.Contains(contentType, "png") {
+					fileExt = ".png"
+				} else if strings.Contains(contentType, "gif") {
+					fileExt = ".gif"
+				}
+			} else if fileExt == "" && mediaType == "video" {
+				fileExt = ".mp4"
 			}
-			if resp.Height > 0 {
-				media.Height = &resp.Height
+			
+			mediaID := uuid.New().String()
+			key := fmt.Sprintf("posts/%s/%s%s", payload.PostID, mediaID, fileExt)
+
+			if err := store.Upload(key, file, contentType); err != nil {
+				log.Printf("Failed to upload %s to R2: %v", tempFile, err)
+				file.Close()
+				continue
+			}
+			
+			// Try to get file size for Bytes field
+			var fileBytes int
+			if stat, err := file.Stat(); err == nil {
+				fileBytes = int(stat.Size())
+			}
+
+			file.Close()
+			os.Remove(tempFile)
+
+			media := Media{
+				ID:        mediaID,
+				PostID:    payload.PostID,
+				Type:      mediaType,
+				URL:       store.GetURL(key),
+				PublicID:  &key,
+				SortOrder: func(i int) *int { return &i }(i),
+				Width:     width,
+				Height:    height,
+				Bytes:     &fileBytes,
 			}
 
 			uploadedMedia = append(uploadedMedia, media)
-
-			// Clean up temp file
-			os.Remove(tempFile)
 		}
 
 		if len(uploadedMedia) > 0 {

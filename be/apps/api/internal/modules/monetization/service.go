@@ -22,9 +22,9 @@ import (
 	"gorm.io/gorm"
 	"media-api/internal/cache"
 	"media-api/internal/modules/notification"
-	"media-api/internal/config"
-	"github.com/cloudinary/cloudinary-go/v2"
-	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"media-api/internal/storage"
+	"os"
+	"path/filepath"
 )
 
 const plisioBaseURL = "https://api.plisio.net/api/v1"
@@ -53,16 +53,18 @@ type service struct {
 	repo         Repository
 	db           *gorm.DB
 	notifService notification.Service
+	store        storage.Storage
 	plisioAPIKey string
 	appURL       string
 	backendURL   string
 }
 
-func NewService(repo Repository, db *gorm.DB, notifService notification.Service, apiKey, appURL, backendURL string) Service {
+func NewService(repo Repository, db *gorm.DB, notifService notification.Service, store storage.Storage, apiKey, appURL, backendURL string) Service {
 	return &service{
 		repo:         repo,
 		db:           db,
 		notifService: notifService,
+		store:        store,
 		plisioAPIKey: apiKey,
 		appURL:       appURL,
 		backendURL:   backendURL,
@@ -864,29 +866,31 @@ func (s *service) SetupAdSlot(userID, adID string, req SetupAdSlotRequest, tempF
 		return nil, fmt.Errorf("ad slot is not ready for setup")
 	}
 
-	// Upload to Cloudinary if temp file exists
+	// Upload to R2 if temp file exists
 	var uploadedURL string
 	if tempFilePath != "" {
-		env := config.LoadConfig()
-		cld, err := cloudinary.NewFromParams(env.CloudinaryCloudName, env.CloudinaryAPIKey, env.CloudinaryAPISecret)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init cloudinary: %v", err)
+		if s.store == nil {
+			return nil, fmt.Errorf("storage not initialized")
 		}
 		
-		uploadParams := uploader.UploadParams{
-			Folder: "ads",
-		}
-		if req.MediaType == "video" {
-			uploadParams.ResourceType = "video"
-		} else {
-			uploadParams.ResourceType = "image"
+		file, err := os.Open(tempFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open media: %v", err)
 		}
 		
-		resp, err := cld.Upload.Upload(context.Background(), tempFilePath, uploadParams)
-		if err != nil {
+		// Detect content type
+		buffer := make([]byte, 512)
+		_, _ = file.Read(buffer)
+		file.Seek(0, 0)
+		contentType := http.DetectContentType(buffer)
+		
+		key := fmt.Sprintf("ads/%s/%s", adID, filepath.Base(tempFilePath))
+		if err := s.store.Upload(key, file, contentType); err != nil {
+			file.Close()
 			return nil, fmt.Errorf("failed to upload media: %v", err)
 		}
-		uploadedURL = resp.SecureURL
+		file.Close()
+		uploadedURL = s.store.GetURL(key)
 	} else {
 		return nil, fmt.Errorf("media file is required")
 	}
@@ -937,29 +941,31 @@ func (s *service) UpdateAdSlotDetails(userID, adID string, req SetupAdSlotReques
 		return nil, fmt.Errorf("ad slot is not active")
 	}
 
-	// Upload to Cloudinary if temp file exists
+	// Upload to R2 if temp file exists
 	var uploadedURL string
 	if tempFilePath != "" {
-		env := config.LoadConfig()
-		cld, err := cloudinary.NewFromParams(env.CloudinaryCloudName, env.CloudinaryAPIKey, env.CloudinaryAPISecret)
-		if err != nil {
-			return nil, fmt.Errorf("failed to init cloudinary: %v", err)
+		if s.store == nil {
+			return nil, fmt.Errorf("storage not initialized")
 		}
 		
-		uploadParams := uploader.UploadParams{
-			Folder: "ads",
-		}
-		if req.MediaType == "video" {
-			uploadParams.ResourceType = "video"
-		} else {
-			uploadParams.ResourceType = "image"
+		file, err := os.Open(tempFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open media: %v", err)
 		}
 		
-		resp, err := cld.Upload.Upload(context.Background(), tempFilePath, uploadParams)
-		if err != nil {
+		// Detect content type
+		buffer := make([]byte, 512)
+		_, _ = file.Read(buffer)
+		file.Seek(0, 0)
+		contentType := http.DetectContentType(buffer)
+		
+		key := fmt.Sprintf("ads/%s/%s", adID, filepath.Base(tempFilePath))
+		if err := s.store.Upload(key, file, contentType); err != nil {
+			file.Close()
 			return nil, fmt.Errorf("failed to upload media: %v", err)
 		}
-		uploadedURL = resp.SecureURL
+		file.Close()
+		uploadedURL = s.store.GetURL(key)
 	} else {
 		// Keep the existing one if no new file is uploaded
 		uploadedURL = *ad.ImageURL
