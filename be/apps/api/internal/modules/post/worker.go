@@ -134,12 +134,29 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 		if len(uploadedMedia) > 0 {
 			// Fetch post author to send notification
 			var p Post
-			if err := db.First(&p, "id = ?", payload.PostID).Error; err == nil {
+			if err := db.Preload("Author").First(&p, "id = ?", payload.PostID).Error; err == nil {
 				if hub != nil {
+					var actorUsername, actorImage string
+					if p.Author != nil {
+						if p.Author.Username != nil {
+							actorUsername = *p.Author.Username
+						} else if p.Author.Name != nil {
+							actorUsername = *p.Author.Name
+						} else {
+							actorUsername = "You"
+						}
+						if p.Author.Image != nil {
+							actorImage = *p.Author.Image
+						}
+					} else {
+						actorUsername = "You"
+					}
+
 					notificationPayload, _ := json.Marshal(map[string]interface{}{
-						"title":   "Post Uploaded",
-						"message": "Your post media has finished uploading!",
-						"postId":  p.ID,
+						"actorUsername": actorUsername,
+						"actorImage":    actorImage,
+						"actionText":    "media has finished uploading",
+						"postId":        p.ID,
 					})
 					hub.SendToUser <- &websocket.MessagePayload{
 						UserID:  p.AuthorID,

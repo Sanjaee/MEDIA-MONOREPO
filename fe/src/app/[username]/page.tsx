@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, Home, Settings, Megaphone, Check } from "lucide-react";
-import { getCloudinaryUrl } from "@/lib/utils";
 import { getRoleBadge, getRoleNameClass, getRoleDisplayName } from "@/utils/roleStyles";
 
 interface PageProps {
@@ -49,7 +48,7 @@ export default async function UserProfilePage({ params }: PageProps) {
           <div className="w-16 h-16 bg-black overflow-hidden border border-[#111]">
             {user.image ? (
               <Image
-                src={getCloudinaryUrl(user.image, "w_200,h_200,c_fill")}
+                src={user.image}
                 alt={user.name || "User"}
                 width={64}
                 height={64}

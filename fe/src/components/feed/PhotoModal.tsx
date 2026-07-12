@@ -6,7 +6,6 @@ import Image from "next/image";
 import { PostWithRelations } from "@/store/usePostStore";
 import { X, MessageCircle, Repeat2, Heart, BarChart2, Bookmark, Share, ChevronLeft, ChevronRight, Copy, ThumbsUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCloudinaryUrl } from "@/lib/utils";
 import { CommentFeed } from "@/components/comment/CommentFeed";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 import { useState } from "react";
@@ -195,9 +194,9 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
           </button>
         )}
 
-        <div className="relative w-full h-full max-h-screen pointer-events-auto flex items-center justify-center">
+        <div className="relative w-full h-full max-w-5xl max-h-screen pointer-events-auto flex items-center justify-center">
           <Image 
-            src={getCloudinaryUrl(photoUrl, "f_auto,q_auto,w_1920,c_limit")} 
+            src={photoUrl} 
             alt="Post image" 
             fill 
             className="object-contain"

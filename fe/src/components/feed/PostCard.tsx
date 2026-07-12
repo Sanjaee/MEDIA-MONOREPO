@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getCloudinaryUrl } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { deletePostAction, toggleLikeAction, toggleBookmarkAction } from "@/actions/post.actions";
 import { useState, useEffect, useRef } from "react";
@@ -43,6 +42,7 @@ import { CommentFeed } from "@/components/comment/CommentFeed";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 import { toast } from "sonner";
 import axios from "axios";
+import { EditPostModal } from "./EditPostModal";
 
 export function PostCard({ post: initialPost, priority = false }: { post: PostWithRelations, priority?: boolean }) {
   const router = useRouter();
@@ -54,6 +54,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const [showCryptoModal, setShowCryptoModal] = useState(false);
   const [currencies, setCurrencies] = useState<any[]>([]);
@@ -370,7 +371,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
             <DropdownMenuContent align="end" className="w-48">
               {isOwner ? (
                 <>
-                  <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => toast.info("Edit feature coming soon!")}>
+                  <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => setIsEditModalOpen(true)}>
                     <Edit size={16} />
                     <span>Edit</span>
                   </DropdownMenuItem>
@@ -434,7 +435,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
                     />
                   ) : post.media.length === 1 ? (
                     <Image 
-                      src={getCloudinaryUrl(media.url, "f_auto,q_auto,w_1200,c_limit")} 
+                      src={media.url} 
                       alt="Post media" 
                       width={media.width || 1200}
                       height={media.height || 800}
@@ -444,7 +445,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
                     />
                   ) : (
                     <Image 
-                      src={getCloudinaryUrl(media.url, "f_auto,q_auto,w_800,c_limit")} 
+                      src={media.url} 
                       alt="Post media" 
                       fill
                       sizes="(max-width: 768px) 50vw, (max-width: 1200px) 30vw, 400px"
@@ -673,6 +674,17 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
           )}
         </DialogContent>
       </Dialog>
+
+      <EditPostModal 
+        post={post}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={(newContent) => {
+          setPost(p => ({...p, content: newContent}));
+          setIsEditModalOpen(false);
+          toast.success("Post updated successfully!");
+        }}
+      />
     </article>
   );
 }
