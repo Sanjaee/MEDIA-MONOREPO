@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Bookmark, Share, Trash2, MoreHorizontal, Edit, UserPlus, Ban, Flag, ThumbsUp, Copy, BarChart2, X, Loader2 } from "lucide-react";
+import { MessageCircle, Bookmark, Share, Trash2, MoreHorizontal, Edit, UserPlus, Ban, Flag, ThumbsUp, Copy, BarChart2, X, Loader2, Search } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { PostWithRelations, usePostStore } from "@/store/usePostStore";
 import {
@@ -58,6 +58,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [showCryptoModal, setShowCryptoModal] = useState(false);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [isBuying, setIsBuying] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [isLiked, setIsLiked] = useState(post.hasLiked ?? false);
   const [likeCount, setLikeCount] = useState(post.stats?.likes ?? 0);
@@ -623,13 +624,30 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
             </DialogDescription>
           </DialogHeader>
 
+          {currencies.length > 0 && (
+            <div className="mt-4 px-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search cryptocurrency..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-[#202327] border border-[#333] rounded-xl text-sm outline-none focus:border-[#1d9bf0] transition-colors text-white"
+                />
+              </div>
+            </div>
+          )}
+
           {isBuying && !currencies.length ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-white" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar mt-4">
-              {currencies.map(c => (
+            <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mt-4">
+              {currencies
+                .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.currency.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(c => (
                 <button
                   key={c.cid}
                   onClick={(e) => {

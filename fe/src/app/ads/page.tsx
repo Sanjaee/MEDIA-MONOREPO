@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2, X, Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
+import { Sparkles, Loader2, X, Image as ImageIcon, Pencil, Trash2, Search } from "lucide-react";
 import axios from "axios";
 import { useRef } from "react";
 
@@ -18,6 +18,7 @@ export default function AdsPage() {
   const [showModal, setShowModal] = useState(false);
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const router = useRouter();
 
@@ -545,13 +546,30 @@ export default function AdsPage() {
             <h2 className="text-2xl font-bold mb-2">Select Crypto</h2>
             <p className="text-gray-400 text-sm mb-6">Choose your preferred cryptocurrency to complete the payment for the Ad Slot ({selectedDuration} Day{selectedDuration > 1 ? 's' : ''}) plan.</p>
             
+            {currencies.length > 0 && (
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Search cryptocurrency..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#202327] border border-[#333] rounded-xl text-sm outline-none focus:border-[#1d9bf0] transition-colors text-white"
+                  />
+                </div>
+              </div>
+            )}
+
             {isBuying && !currencies.length ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-8 h-8 animate-spin text-white" />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {currencies.map(c => (
+              <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {currencies
+                  .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.currency.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(c => (
                   <button
                     key={c.cid}
                     onClick={() => handleCurrencySelect(c.currency)}

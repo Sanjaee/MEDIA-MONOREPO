@@ -33,6 +33,11 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
         .then(data => setCurrencies(data))
         .catch(err => console.error("Failed to load currencies:", err));
     }
+    if (!isOpen) {
+      setSuccess(false);
+      setError("");
+      setAmount("");
+    }
   }, [isOpen]);
 
   useEffect(() => {
