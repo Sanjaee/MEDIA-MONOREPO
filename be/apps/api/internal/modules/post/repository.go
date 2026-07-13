@@ -41,6 +41,8 @@ func (r *repository) FindByID(userID, id string) (*Post, error) {
 	if userID != "" {
 		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	}
+	
+	query = applyVisibility(query, userID)
 
 	err := query.Where("id = ?", id).First(&post).Error
 	if err != nil {
@@ -63,7 +65,8 @@ func (r *repository) Delete(id string) error {
 
 func (r *repository) GetLatestFeed(userID string, cursor string, limit int) ([]Post, error) {
 	var posts []Post
-	query := r.db.Preload("Author").Preload("Media").Where("visibility = ?", "public").Order("created_at DESC, id DESC").Limit(limit + 1)
+	query := r.db.Preload("Author").Preload("Media")
+	query = applyVisibility(query, userID).Order("created_at DESC, id DESC").Limit(limit + 1)
 	
 	if userID != "" {
 		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
@@ -86,8 +89,8 @@ func (r *repository) GetTrendingFeed(userID string, cursorScore float64, cursorI
 	// Simplified formula for Trending: likeCount*1 + commentCount*3 + repostCount*4 + bookmarkCount*5
 	scoreExpr := "(like_count * 1 + comment_count * 3 + repost_count * 4 + bookmark_count * 5 + view_count * 0.05)"
 	
-	query := r.db.Preload("Author").Preload("Media").
-		Where("visibility = ?", "public").
+	query := r.db.Preload("Author").Preload("Media")
+		query = applyVisibility(query, userID).
 		Where("(like_count > 0 OR comment_count > 0 OR repost_count > 0 OR bookmark_count > 0)").
 		Order("score DESC, id DESC").
 		Limit(limit + 1)
@@ -110,7 +113,8 @@ func (r *repository) GetHotFeed(userID string, cursorScore float64, cursorID str
 	// Simplified Hot Feed: similar to Trending but decays with time.
 	// For simplicity in GORM, we reuse the pattern.
 	var posts []Post
-	query := r.db.Preload("Author").Preload("Media").Where("visibility = ?", "public").Order("created_at DESC").Limit(limit + 1)
+	query := r.db.Preload("Author").Preload("Media")
+	query = applyVisibility(query, userID).Order("created_at DESC").Limit(limit + 1)
 
 	if userID != "" {
 		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
@@ -166,4 +170,19 @@ func (r *repository) GetSearchFeed(userID string, keyword string, cursor string,
 
 	err := query.Find(&posts).Error
 	return posts, err
+}
+
+func applyVisibility(query *gorm.DB, userID string) *gorm.DB {
+	if userID == "" {
+		return query.Where("visibility = ?", "public")
+	}
+	
+	visibilityCondition := `
+		(visibility = 'public') OR
+		(visibility = 'private' AND author_id = ?) OR
+		(visibility = 'followers' AND author_id IN (
+			SELECT following_id FROM follows WHERE follower_id = ?
+		))
+	`
+	return query.Where(visibilityCondition, userID, userID)
 }

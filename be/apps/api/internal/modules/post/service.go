@@ -111,9 +111,16 @@ func (s *service) DeletePost(ctx context.Context, postID, userID string) error {
 		return errors.New("unauthorized: you are not the author of this post")
 	}
 	
-	err = s.repository.Delete(postID)
+	// Soft Delete
+	post.DeletedBy = &userID
+	reason := "user_deleted"
+	post.DeleteReason = &reason
+	err = s.repository.Update(post)
 	if err == nil {
-		// Delete media from R2
+		s.repository.Delete(postID) // triggers gorm.DeletedAt
+		
+		// Delete media from R2 (optional for soft delete, but keeping as is)
+
 		if post.Media != nil {
 			for _, m := range post.Media {
 				if m.PublicID != nil {

@@ -3,6 +3,7 @@ package post
 import (
 	"time"
 
+	"gorm.io/gorm"
 	"media-api/internal/modules/user"
 )
 
@@ -27,6 +28,9 @@ type Post struct {
 	HasBought      bool       `gorm:"->;type:boolean" json:"hasBought"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt      time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
+	DeletedBy      *string    `gorm:"type:varchar" json:"deletedBy,omitempty"`
+	DeleteReason   *string    `gorm:"type:varchar" json:"deleteReason,omitempty"`
 	Media          []Media    `gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;" json:"media,omitempty"`
 }
 

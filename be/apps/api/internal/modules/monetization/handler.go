@@ -34,6 +34,12 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.GET("/products/withdraw/history", h.GetWithdrawalHistory)
 	}
 
+	products := router.Group("/products")
+	{
+		products.POST("/:postId/access-token", h.GenerateProductAccessURL)
+		products.GET("/download", h.DownloadProductByToken)
+	}
+
 	ads := router.Group("/ads")
 	{
 		ads.POST("/", h.CreatePendingAd)
@@ -373,13 +379,11 @@ func (h *Handler) DeleteAd(c *gin.Context) {
 }
 
 func getAuthUserID(c *gin.Context) string {
-	authHeader := c.GetHeader("Authorization")
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		return authHeader[7:]
-	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-		return xUserId
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
 	}
-	return ""
+	return userID
 }
 
 func (h *Handler) GetProductSalesStats(c *gin.Context) {
@@ -434,4 +438,58 @@ func (h *Handler) GetWithdrawalHistory(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": history})
+}
+
+// GenerateProductAccessURL checks if the user purchased the product and issues a short-lived download token
+func (h *Handler) GenerateProductAccessURL(c *gin.Context) {
+	userID := c.GetString("userID")
+	postID := c.Param("postId")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Verify purchase
+	hasBought, err := h.service.VerifyProductPurchase(userID, postID)
+	if err != nil || !hasBought {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not purchased"})
+		return
+	}
+
+	// Generate a short-lived token using the UUID package
+	tokenID := uuid.New().String()
+
+	// Generated product token
+
+	// The checklist says: h.redisClient.Set(ctx, fmt.Sprintf("product_token:%s", token.TokenID), token.R2URL, 30*time.Minute)
+	// But h.redisClient is not in Handler struct. Wait, I should add this to the service.
+	// Let's create a service method GenerateProductToken that does this instead.
+	tokenID, err = h.service.GenerateProductToken(userID, postID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"accessToken": tokenID,
+		"expiresIn":   1800, // 30 minutes
+	})
+}
+
+// DownloadProductByToken handles the final redirect using the token
+func (h *Handler) DownloadProductByToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token required"})
+		return
+	}
+
+	signedURL, err := h.service.GetSignedURLFromToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	c.Redirect(http.StatusTemporaryRedirect, signedURL)
 }

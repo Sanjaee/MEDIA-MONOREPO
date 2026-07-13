@@ -215,6 +215,27 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     }
   };
 
+  const [isAccessing, setIsAccessing] = useState(false);
+
+  const handleAccessProduct = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isAccessing) return;
+    
+    setIsAccessing(true);
+    try {
+      const res = await axios.post(`/api/products/${post.id}/access-token`);
+      if (res.data.accessToken) {
+        window.open(`/api/products/download?token=${res.data.accessToken}`, "_blank");
+      } else {
+        toast.error("Failed to generate access token");
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to access product");
+    } finally {
+      setIsAccessing(false);
+    }
+  };
+
   const handleBuyProductClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!session?.user) {
@@ -484,8 +505,8 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               </div>
               <div>
                 {(post.hasBought || session?.user?.id === post.author?.id) ? (
-                  <Button onClick={(e) => { e.stopPropagation(); window.open(post.productUrl, '_blank'); }} className="rounded-full px-6 font-semibold">
-                    Access Product
+                  <Button onClick={handleAccessProduct} disabled={isAccessing} className="rounded-full px-6 font-semibold">
+                    {isAccessing ? "Opening..." : "Access Product"}
                   </Button>
                 ) : (
                   <Button onClick={handleBuyProductClick} disabled={isBuying} className="rounded-full px-6 font-semibold bg-green-600 hover:bg-green-700 text-white">
