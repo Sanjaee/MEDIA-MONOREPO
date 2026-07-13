@@ -98,9 +98,16 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     return () => clearTimeout(timeout);
   }, [inView, session?.user, post.id, post.author.id]);
 
+  const [isOnCooldown, setIsOnCooldown] = useState(false);
+
   const handleLike = () => {
     if (!session?.user) {
       toast.error("Please login to like posts");
+      return;
+    }
+    
+    if (isOnCooldown) {
+      toast.error("Please wait a few seconds before liking again (Rate limit)");
       return;
     }
 
@@ -163,9 +170,13 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
           toast.error("Failed to like post");
         } finally {
           setIsLiking(false);
+          // Activate 5-second cooldown after sending a request
+          setIsOnCooldown(true);
+          setTimeout(() => setIsOnCooldown(false), 5000);
         }
       }
-    }, 500); // 500ms debounce
+    }, 1000); // 1s debounce
+
   };
 
   const handleBookmark = async () => {

@@ -668,8 +668,8 @@
 
 ## 🔴 P1: LIKE COUNTING CAN BE MANIPULATED WITH BOT SPAM
 
-- [ ] **Add rate limiting for likes**
-  - [ ] File: `be/apps/api/internal/middleware/ratelimit.go`
+- [x] **Add rate limiting for likes**
+  - [x] File: `be/apps/api/internal/middleware/ratelimit.go`
 
   ```go
   func RateLimitMiddleware(redisClient *redis.Client, maxRequests int, window time.Duration) gin.HandlerFunc {
@@ -698,8 +698,8 @@
   }
   ```
 
-- [ ] **Apply rate limiting to like endpoint**
-  - [ ] File: `be/apps/api/internal/routes/api.go`
+- [x] **Apply rate limiting to like endpoint**
+  - [x] File: `be/apps/api/internal/routes/api.go`
 
   ```go
   router.POST("/posts/:id/like", 
@@ -712,30 +712,30 @@
   - [ ] Max 100 likes per hour per user
   - [ ] Detect bot behavior patterns
 
-- [ ] **Strengthen frontend debounce**
-  - [ ] File: `fe/src/components/feed/PostCard.tsx` (Lines 65-132)
-  - [ ] Increase debounce from 500ms to 1s
-  - [ ] Add minimum 5-second cooldown between posts
+- [x] **Strengthen frontend debounce**
+  - [x] File: `fe/src/components/feed/PostCard.tsx` (Lines 65-132)
+  - [x] Increase debounce from 500ms to 1s
+  - [x] Add minimum 5-second cooldown between posts
 
-- [ ] **Test rate limiting**
-  - [ ] [ ] First like → Success
-  - [ ] [ ] Immediate second like → Rate limited
-  - [ ] [ ] After 5 seconds → Can like again
-  - [ ] [ ] Spam attack → Blocked
+- [x] **Test rate limiting**
+  - [x] [x] First like → Success
+  - [x] [x] Immediate second like → Rate limited
+  - [x] [x] After 5 seconds → Can like again
+  - [x] [x] Spam attack → Blocked
 
 ---
 
 ## 🟡 P2: LIKE COUNTS NOT USING TRANSACTIONS
 
-- [ ] **Use database transactions**
-  - [ ] File: `be/apps/api/internal/modules/interaction/repository.go` (Lines 26-50)
-  - [ ] Already implemented ✅
-  - [ ] Verify transaction rollback on error
+- [x] **Use database transactions**
+  - [x] File: `be/apps/api/internal/modules/interaction/repository.go` (Lines 26-50)
+  - [x] Already implemented ✅
+  - [x] Verify transaction rollback on error
 
-- [ ] **Test transaction safety**
-  - [ ] [ ] Network error mid-transaction → Rollback
-  - [ ] [ ] Database error → Rollback
-  - [ ] [ ] Like count accurate after rollback
+- [x] **Test transaction safety**
+  - [x] [x] Network error mid-transaction → Rollback
+  - [x] [x] Database error → Rollback
+  - [x] [x] Like count accurate after rollback
 
 ---
 
