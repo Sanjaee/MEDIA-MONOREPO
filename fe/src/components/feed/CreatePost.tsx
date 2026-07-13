@@ -28,7 +28,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   if (!session?.user) return null;
 
   const MAX_VIDEO_SIZE = 20 * 1024 * 1024; // 20MB
-  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const validateFile = (file: File) => {
     if (file.type.startsWith('video/')) {
@@ -38,7 +38,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       }
     } else if (file.type.startsWith('image/')) {
       if (file.size > MAX_IMAGE_SIZE) {
-        toast.error(`Image ${file.name} is too large. Max size is 5MB.`);
+        toast.error(`Image ${file.name} is too large. Max size is 10MB.`);
         return false;
       }
     }
@@ -98,7 +98,22 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       }
 
       for (const file of selectedFiles) {
-        formData.append("media", file);
+        if (file.type.startsWith("image/")) {
+          const options = {
+            maxSizeMB: 1, // Max file size in MB
+            maxWidthOrHeight: 1200, // Max width/height
+            useWebWorker: true,
+          };
+          try {
+            const compressedFile = await imageCompression(file, options);
+            formData.append("media", compressedFile);
+          } catch (error) {
+            console.error("Compression failed:", error);
+            formData.append("media", file); // Fallback to original
+          }
+        } else {
+          formData.append("media", file);
+        }
       }
 
       // Use client-side fetch to our Next.js API route proxy 

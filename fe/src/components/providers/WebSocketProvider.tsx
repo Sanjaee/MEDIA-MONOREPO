@@ -60,7 +60,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             role: n.actor?.role || "user",
           },
           actionText: n.type === "LIKE" ? "liked your post" 
-                    : n.type === "SYSTEM" ? (n.message?.includes("payment was successful") ? "Payment Successful" : "Role Upgraded")
+                    : n.type === "SYSTEM" ? (n.message?.includes("Digital Product") ? "Payment Successful" : "Role Upgraded")
                     : n.type === "PRODUCT_SALE" ? "purchased your product"
                     : "commented",
           message: n.type === "LIKE" ? "" : (n.message || ""),
@@ -117,6 +117,19 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
             const displayTitle = `${newNotif.actor?.username} ${newNotif.actionText}`;
 
+            if (data.payload.type === "SYSTEM") {
+              const isSystemUpgrade = newNotif.actionText === "Role Upgraded";
+              const isProductPayment = newNotif.actionText === "Payment Successful";
+              
+              if (isSystemUpgrade) {
+                queryClient.invalidateQueries({ queryKey: ["user"] });
+                queryClient.invalidateQueries({ queryKey: ["feed"] });
+              } else if (isProductPayment) {
+                queryClient.invalidateQueries({ queryKey: ["purchases"] });
+                queryClient.invalidateQueries({ queryKey: ["feed"] });
+              }
+            }
+            
             const isSystemUpgrade = newNotif.actionText === "Role Upgraded";
 
             toast(displayTitle, {
@@ -130,7 +143,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             });
 
             // Invalidate query to refetch feed when a post with media finishes uploading
-            if (payload.title === "Post Uploaded") {
+            if (payload.actionText && payload.actionText.includes("uploading")) {
               queryClient.invalidateQueries({ queryKey: ["feed"] });
             }
           }

@@ -86,7 +86,7 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 			}
 			
 			mediaID := uuid.New().String()
-			key := fmt.Sprintf("posts/%s/%s%s", payload.PostID, mediaID, fileExt)
+			key := fmt.Sprintf("posts/%s%s", mediaID, fileExt)
 
 			if err := store.Upload(key, file, contentType); err != nil {
 				log.Printf("Failed to upload %s to R2: %v", tempFile, err)
@@ -155,7 +155,8 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 					notificationPayload, _ := json.Marshal(map[string]interface{}{
 						"actorUsername": actorUsername,
 						"actorImage":    actorImage,
-						"actionText":    "media has finished uploading",
+						"actionText":    "has finished uploading your media!",
+						"message":       "Your post media is now ready to view.",
 						"postId":        p.ID,
 					})
 					hub.SendToUser <- &websocket.MessagePayload{

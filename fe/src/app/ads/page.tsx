@@ -376,7 +376,7 @@ export default function AdsPage() {
                         <ImageIcon className="w-6 h-6" />
                       </div>
                       <p className="font-medium text-sm">Click to upload media</p>
-                      <p className="text-xs text-muted-foreground mt-1">Recommended 16:9. Max 5MB image, 20MB video (max 30s).</p>
+                      <p className="text-xs text-muted-foreground mt-1">Recommended 16:9. Max 10MB image, 20MB video (max 30s).</p>
                     </div>
                   )}
                   <input 

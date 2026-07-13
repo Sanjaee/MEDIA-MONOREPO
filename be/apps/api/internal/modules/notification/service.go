@@ -13,7 +13,7 @@ type Service interface {
 	CreateRoleUpgradeNotification(userID, roleName string) error
 	CreateAdPaymentSuccessNotification(userID string) error
 	CreateProductSaleNotification(userID, actorID, postID string, amount int) error
-	CreateProductPaymentSuccessNotification(userID string) error
+	CreateProductPaymentSuccessNotification(userID string, postID string) error
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
@@ -246,15 +246,18 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 
 
 	payload := map[string]interface{}{
-		"id":          n.ID,
-		"type":        nType,
-		"actorId":     actorID,
-		"entityId":    postID,
-		"message":     message,
-		"actorImage":  actorImage,
-		"isRead":      false,
-		"createdAt":   n.CreatedAt,
-		"amount":      amount,
+		"id":            n.ID,
+		"type":          nType,
+		"actorId":       actorID,
+		"entityId":      postID,
+		"postId":        postID, // Add postId for the frontend redirect
+		"message":       message,
+		"actionText":    "purchased your product!", // Add actionText
+		"actorUsername": actorUsername, // Add actorUsername
+		"actorImage":    actorImage,
+		"isRead":        false,
+		"createdAt":     n.CreatedAt,
+		"amount":        amount,
 	}
 
 	payloadBytes, _ := json.Marshal(payload)
@@ -268,7 +271,7 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 	return nil
 }
 
-func (s *service) CreateProductPaymentSuccessNotification(userID string) error {
+func (s *service) CreateProductPaymentSuccessNotification(userID string, postID string) error {
 	nType := "SYSTEM"
 	isRead := false
 	message := "Your payment for a Digital Product was successful! You can now access it."
@@ -276,6 +279,7 @@ func (s *service) CreateProductPaymentSuccessNotification(userID string) error {
 		ID:       uuid.New().String(),
 		UserID:   userID,
 		ActorID:  userID, // System or self
+		EntityID: &postID,
 		Type:     &nType,
 		Message:  &message,
 		IsRead:   &isRead,
@@ -292,7 +296,7 @@ func (s *service) CreateProductPaymentSuccessNotification(userID string) error {
 		"actorImage":    nil,
 		"actionText":    "Payment Successful",
 		"message":       message,
-		"postId":        "",
+		"postId":        postID,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 	

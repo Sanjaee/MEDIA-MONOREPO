@@ -11,6 +11,7 @@ import (
 	"github.com/hibiken/asynq"
 	"encoding/json"
 	"media-api/internal/websocket"
+	"media-api/internal/storage"
 )
 
 type Service interface {
@@ -25,10 +26,11 @@ type Service interface {
 type service struct {
 	repository Repository
 	hub        *websocket.Hub
+	store      storage.Storage
 }
 
-func NewService(repository Repository, hub *websocket.Hub) *service {
-	return &service{repository, hub}
+func NewService(repository Repository, hub *websocket.Hub, store storage.Storage) *service {
+	return &service{repository: repository, hub: hub, store: store}
 }
 
 func (s *service) CreatePost(ctx context.Context, post *Post, tempFiles []string) error {
@@ -111,6 +113,15 @@ func (s *service) DeletePost(ctx context.Context, postID, userID string) error {
 	
 	err = s.repository.Delete(postID)
 	if err == nil {
+		// Delete media from R2
+		if post.Media != nil {
+			for _, m := range post.Media {
+				if m.PublicID != nil {
+					_ = s.store.Delete(*m.PublicID)
+				}
+			}
+		}
+
 		cache.Delete(ctx, fmt.Sprintf("post:%s", postID))
 		cache.DeletePattern(ctx, "feed:*")
 	}

@@ -28,7 +28,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	notificationHandler := notification.NewHandler(notificationService)
 
 	postRepo := post.NewRepository(db)
-	postService := post.NewService(postRepo, hub)
+	postService := post.NewService(postRepo, hub, store)
 	postController := post.NewController(postService)
 
 	commentRepo := comment.NewRepository(db)

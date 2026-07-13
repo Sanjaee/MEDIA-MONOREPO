@@ -820,7 +820,7 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 			if err := s.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error; err == nil && authorID != "" {
 				_ = s.notifService.CreateProductSaleNotification(authorID, tx.UserID, postID, tx.Amount)
 			}
-			_ = s.notifService.CreateProductPaymentSuccessNotification(tx.UserID)
+			_ = s.notifService.CreateProductPaymentSuccessNotification(tx.UserID, postID)
 		}
 		cache.DeletePattern(context.Background(), "feed:*")
 	} else if tx.ItemType == "role" {
