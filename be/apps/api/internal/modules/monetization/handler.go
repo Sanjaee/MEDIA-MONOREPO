@@ -4,9 +4,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"media-api/internal/cache"
+	"media-api/internal/middleware"
 )
 
 type Handler struct {
@@ -16,11 +19,15 @@ type Handler struct {
 func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 	payment := router.Group("/payment")
 	{
+		// 5 requests per hour rate limit
+		payment.Use(middleware.RateLimitMiddleware(cache.RDB, 5, time.Hour))
+		
 		payment.GET("/plisio/currencies", h.GetCurrencies)
 		payment.POST("/plisio/role", h.CreateRolePayment)
 		payment.POST("/plisio/ad", h.CreateAdPayment)
 		payment.POST("/plisio/product", h.CreateProductPayment)
 		payment.POST("/plisio/webhook", h.Webhook)
+		payment.POST("/plisio/verify-key", h.VerifyKey)
 		payment.GET("/plisio/verify", h.VerifyOrder)
 		payment.GET("/products/sales", h.GetProductSalesStats)
 		payment.POST("/products/withdraw", h.WithdrawProductEarnings)
@@ -207,6 +214,18 @@ func (h *Handler) VerifyOrder(c *gin.Context) {
 			"status":  status,
 		},
 	})
+}
+
+func (h *Handler) VerifyKey(c *gin.Context) {
+	// This endpoint verifies a Plisio callback signature securely on the backend
+	var data map[string]interface{}
+	if err := c.ShouldBindJSON(&data); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	isValid := h.service.VerifyPlisioSignatureOnly(data)
+	c.JSON(http.StatusOK, gin.H{"valid": isValid})
 }
 
 // Ads Handlers

@@ -20,6 +20,19 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "35mb",
     },
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "connect-src 'self' http://127.0.0.1:8080 http://localhost:8080;", 
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

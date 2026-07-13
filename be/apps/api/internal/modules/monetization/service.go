@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -36,6 +37,7 @@ type Service interface {
 	HandlePlisioWebhook(payload []byte) error
 	GetPlisioCurrencies() ([]PlisioCurrency, error)
 	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
+	VerifyPlisioSignatureOnly(data map[string]interface{}) bool
 
 	CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error)
 	GetPendingAdSlots(userID string) ([]AdSlot, error)
@@ -215,6 +217,10 @@ func stripVerifyHashFromJSON(raw []byte) string {
 	return strings.TrimSpace(s)
 }
 
+func (s *service) VerifyPlisioSignatureOnly(data map[string]interface{}) bool {
+	return verifyPlisioCallback(data, s.plisioAPIKey, nil)
+}
+
 func verifyPlisioCallback(data map[string]interface{}, apiKey string, rawPayload []byte) bool {
 	verifyHash, ok := data["verify_hash"].(string)
 	if !ok || verifyHash == "" {
@@ -241,10 +247,11 @@ func verifyPlisioCallback(data map[string]interface{}, apiKey string, rawPayload
 	}
 
 	serialized := plisioCallbackSerialize(data)
-	mac2 := hmac.New(sha1.New, []byte(apiKey))
-	mac2.Write([]byte(serialized))
-	calculatedPHP := hex.EncodeToString(mac2.Sum(nil))
-	return calculatedPHP == verifyHash
+	hmacObj := hmac.New(sha1.New, []byte(apiKey))
+	hmacObj.Write([]byte(serialized))
+	computedHash := hex.EncodeToString(hmacObj.Sum(nil))
+
+	return subtle.ConstantTimeCompare([]byte(computedHash), []byte(verifyHash)) == 1
 }
 
 func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
@@ -410,6 +417,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 
 	status := "pending"
 	method := "crypto"
+	expireTime := time.Now().Add(24 * time.Hour)
 	tx := &Transaction{
 		ID:            orderID,
 		UserID:        userID,
@@ -421,6 +429,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 		PlisioOrderID: &orderNumber,
 		PlisioTxnID:   &inv.TxnID,
 		InvoiceURL:    &inv.InvoiceURL,
+		ExpiresAt:     &expireTime,
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
@@ -491,6 +500,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 
 	status := "pending"
 	method := "crypto"
+	expireTime := time.Now().Add(24 * time.Hour)
 	// Encode Product PostID
 	tx := &Transaction{
 		ID:                orderID,
@@ -503,6 +513,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		PlisioOrderID:     &orderNumber,
 		PlisioTxnID:       &inv.TxnID,
 		InvoiceURL:        &inv.InvoiceURL,
+		ExpiresAt:         &expireTime,
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
@@ -573,6 +584,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 
 	status := "pending"
 	method := "crypto"
+	expireTime := time.Now().Add(24 * time.Hour)
 	tx := &Transaction{
 		ID:            orderID,
 		UserID:        userID,
@@ -583,6 +595,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 		PaymentMethod: &method,
 		PlisioOrderID: &orderNumber,
 		PlisioTxnID:   &inv.TxnID,
+		ExpiresAt:     &expireTime,
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
@@ -611,6 +624,20 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 	var cb PlisioCallbackData
 	if err := json.Unmarshal(payload, &cb); err != nil {
 		return err
+	}
+
+	// Nonce validation & replay protection
+	nonceKey := fmt.Sprintf("webhook_nonce:%s", cb.TxnID)
+	var exists bool
+	if cache.RDB != nil {
+		existsInt, _ := cache.RDB.Exists(context.Background(), nonceKey).Result()
+		exists = existsInt > 0
+	}
+	if exists {
+		return fmt.Errorf("duplicate webhook or replay attack detected")
+	}
+	if cache.RDB != nil {
+		cache.RDB.Set(context.Background(), nonceKey, true, 5*time.Minute)
 	}
 
 	tx, err := s.repo.FindTransactionByPlisioOrderNumber(cb.OrderNumber)

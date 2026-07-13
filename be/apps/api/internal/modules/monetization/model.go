@@ -15,8 +15,10 @@ type Transaction struct {
 	PlisioTxnID   *string   `gorm:"type:varchar"`
 	PaymentMethod *string   `gorm:"type:varchar;default:'crypto'"`
 	InvoiceURL    *string   `gorm:"type:varchar"`
-	CreatedAt     time.Time `gorm:"autoCreateTime;type:timestamp"`
-	UpdatedAt     time.Time `gorm:"autoUpdateTime;type:timestamp"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp"`
+	UpdatedAt     time.Time  `gorm:"autoUpdateTime;type:timestamp"`
+	ExpiresAt     *time.Time `gorm:"type:timestamp"`
+	CompletedAt   *time.Time `gorm:"type:timestamp"`
 }
 
 type AdSlot struct {

@@ -59,8 +59,6 @@ export async function createPendingAdAction(durationDays: number = 1) {
 
 // Plisio Integration for Ads
 
-const PLISIO_BASE_URL = "https://api.plisio.net/api/v1";
-
 export async function getPlisioCurrenciesAction() {
   const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
   

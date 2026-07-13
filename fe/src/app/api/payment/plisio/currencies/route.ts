@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
-import { getPlisioApiKey, getPlisioBaseUrl } from '@/lib/plisio';
+
 
 export interface PlisioCurrency {
   name: string;
