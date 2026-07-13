@@ -3,10 +3,12 @@ package auth
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"media-api/internal/modules/user"
 )
@@ -26,6 +28,9 @@ type Service interface {
 	DeleteSession(sessionToken string) error
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 	SearchUsers(query string, limit int) ([]user.User, error)
+
+	GenerateToken(userID string) (string, error)
+	ValidateToken(tokenString string) (*jwt.RegisteredClaims, error)
 }
 
 type service struct {
@@ -151,4 +156,45 @@ func cleanString(input string) string {
 	input = strings.ToLower(input)
 	re := regexp.MustCompile("[^a-z0-9]")
 	return re.ReplaceAllString(input, "")
+}
+
+func (s *service) GenerateToken(userID string) (string, error) {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "default_secret_for_dev_only"
+	}
+	
+	claims := &jwt.RegisteredClaims{
+		Subject:   userID,
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    "media-api",
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(jwtSecret))
+}
+
+func (s *service) ValidateToken(tokenString string) (*jwt.RegisteredClaims, error) {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "default_secret_for_dev_only"
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(jwtSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
 }

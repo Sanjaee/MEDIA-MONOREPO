@@ -18,11 +18,7 @@ func NewController(service Service) *Controller {
 }
 
 func (c *Controller) CreateComment(ctx *gin.Context) {
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -58,11 +54,7 @@ func (c *Controller) CreateComment(ctx *gin.Context) {
 
 func (c *Controller) DeleteComment(ctx *gin.Context) {
 	commentID := ctx.Param("id")
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})

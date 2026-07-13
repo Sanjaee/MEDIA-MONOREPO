@@ -61,12 +61,9 @@ func (h *Handler) GetCurrencies(c *gin.Context) {
 
 func (h *Handler) CreateRolePayment(c *gin.Context) {
 	// Require Auth
-	authHeader := c.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-		userID = xUserId
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
 	}
 
 	if userID == "" {
@@ -97,12 +94,9 @@ func (h *Handler) CreateRolePayment(c *gin.Context) {
 
 func (h *Handler) CreateAdPayment(c *gin.Context) {
 	// Require Auth
-	authHeader := c.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-		userID = xUserId
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
 	}
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -132,12 +126,9 @@ func (h *Handler) CreateAdPayment(c *gin.Context) {
 
 func (h *Handler) CreateProductPayment(c *gin.Context) {
 	// Require Auth
-	authHeader := c.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-		userID = xUserId
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
 	}
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -182,12 +173,9 @@ func (h *Handler) Webhook(c *gin.Context) {
 
 func (h *Handler) VerifyOrder(c *gin.Context) {
 	// Require Auth
-	authHeader := c.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-		userID = xUserId
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
 	}
 
 	if userID == "" {

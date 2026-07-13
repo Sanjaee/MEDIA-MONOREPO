@@ -12,14 +12,7 @@ import (
 
 func RateLimitMiddleware(rdb *redis.Client, maxRequests int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var userID string
-		authHeader := c.GetHeader("Authorization")
-		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			userID = authHeader[7:]
-		} else if xUserId := c.GetHeader("X-User-Id"); xUserId != "" {
-			userID = xUserId
-		}
-
+		userID := c.GetString("userID")
 		if userID == "" {
 			// If not authenticated, limit by IP
 			userID = c.ClientIP()

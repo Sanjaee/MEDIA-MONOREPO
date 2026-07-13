@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"media-api/internal/middleware"
 	"media-api/internal/modules/auth"
 	"media-api/internal/modules/chat"
 	"media-api/internal/modules/comment"
@@ -71,6 +72,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	})
 
 	api := r.Group("/api")
+	api.Use(middleware.OptionalAuth(authService))
 	{
 		api.GET("/ping", func(c *gin.Context) {
 			c.JSON(200, gin.H{
@@ -102,6 +104,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")
+		adapter.Use(middleware.CSRFMiddleware())
 		{
 			adapter.POST("/user", authHandler.CreateUser)
 			adapter.GET("/user/:id", authHandler.GetUser)

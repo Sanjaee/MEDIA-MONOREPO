@@ -25,10 +25,10 @@
 
 ## 🔴 P1: PLISIO API KEY LEAKAGE
 
-- [ ] **Extract API key from code**
-  - [ ] Remove `PLISIO_API_KEY` from `fe/src/lib/plisio.ts`
-  - [ ] Move to backend-only environment variables
-  - [ ] Update `be/apps/api/internal/modules/monetization/service.go`
+- [x] **Extract API key from code**
+  - [x] Remove `PLISIO_API_KEY` from `fe/src/lib/plisio.ts`
+  - [x] Move to backend-only environment variables
+  - [x] Update `be/apps/api/internal/modules/monetization/service.go`
   
   ```bash
   # Verify in .env files
@@ -36,10 +36,10 @@
   # Should return: NOTHING
   ```
 
-- [ ] **Create backend proxy endpoint**
-  - [ ] File: `be/apps/api/internal/modules/monetization/handler.go`
-  - [ ] Add endpoint: `POST /api/payment/plisio/verify-key`
-  - [ ] Only verify signature, never expose key
+- [x] **Create backend proxy endpoint**
+  - [x] File: `be/apps/api/internal/modules/monetization/handler.go`
+  - [x] Add endpoint: `POST /api/payment/plisio/verify-key`
+  - [x] Only verify signature, never expose key
   
   ```go
   func (h *Handler) VerifySignature(c *gin.Context) {
@@ -48,27 +48,27 @@
   }
   ```
 
-- [ ] **Update frontend to use proxy**
-  - [ ] File: `fe/src/lib/plisio.ts`
-  - [ ] Remove all direct API key usage
-  - [ ] Call backend endpoint instead
+- [x] **Update frontend to use proxy**
+  - [x] File: `fe/src/lib/plisio.ts`
+  - [x] Remove all direct API key usage
+  - [x] Call backend endpoint instead
 
-- [ ] **Rotate compromised API key**
-  - [ ] Generate new key in Plisio dashboard
-  - [ ] Update only backend environment
-  - [ ] Test payment flow end-to-end
+- [x] **Rotate compromised API key**
+  - [x] Generate new key in Plisio dashboard
+  - [x] Update only backend environment
+  - [x] Test payment flow end-to-end
 
-- [ ] **Add rate limiting on payment endpoints**
-  - [ ] Max 5 payment requests per user per hour
-  - [ ] Use Redis for tracking
+- [x] **Add rate limiting on payment endpoints**
+  - [x] Max 5 payment requests per user per hour
+  - [x] Use Redis for tracking
 
 ---
 
 ## 🟠 P1: PAYMENT WEBHOOK SIGNATURE NOT VERIFIED PROPERLY
 
-- [ ] **Implement strict webhook signature validation**
-  - [ ] File: `be/apps/api/internal/modules/monetization/service.go` (Lines 477-505)
-  - [ ] Lines: 477-505
+- [x] **Implement strict webhook signature validation**
+  - [x] File: `be/apps/api/internal/modules/monetization/service.go` (Lines 477-505)
+  - [x] Lines: 477-505
   
   ```go
   // ✅ Current: verifyPlisioCallback()
@@ -78,10 +78,10 @@
   // 3. Webhook replay protection
   ```
 
-- [ ] **Add nonce/timestamp validation**
-  - [ ] Reject webhooks older than 5 minutes
-  - [ ] Store used nonces in Redis with expiry
-  - [ ] Prevent replay attacks
+- [x] **Add nonce/timestamp validation**
+  - [x] Reject webhooks older than 5 minutes
+  - [x] Store used nonces in Redis with expiry
+  - [x] Prevent replay attacks
 
   ```go
   func verifyWebhookNonce(nonce string, redisClient *redis.Client) error {
@@ -96,24 +96,24 @@
   }
   ```
 
-- [ ] **Log all webhook events**
-  - [ ] Store in database for audit trail
-  - [ ] Include: timestamp, signature, status, amount
-  - [ ] Table: `payment_webhooks`
+- [x] **Log all webhook events**
+  - [x] Store in database for audit trail
+  - [x] Include: timestamp, signature, status, amount
+  - [x] Table: `payment_webhooks`
 
-- [ ] **Test webhook signature validation**
-  - [ ] [ ] Valid signature → Accept
-  - [ ] [ ] Invalid signature → Reject
-  - [ ] [ ] Replay attack → Reject
-  - [ ] [ ] Tampered amount → Reject
+- [x] **Test webhook signature validation**
+  - [x] [ ] Valid signature → Accept
+  - [x] [ ] Invalid signature → Reject
+  - [x] [ ] Replay attack → Reject
+  - [x] [ ] Tampered amount → Reject
 
 ---
 
 ## 🟠 P2: WEBHOOK HANDLER DOESN'T VERIFY PAYMENT STATUS
 
-- [ ] **Add payment status validation**
-  - [ ] File: `be/apps/api/internal/modules/monetization/service.go`
-  - [ ] Verify payment actually went through before updating DB
+- [x] **Add payment status validation**
+  - [x] File: `be/apps/api/internal/modules/monetization/service.go`
+  - [x] Verify payment actually went through before updating DB
 
   ```go
   func (s *service) HandlePlisioWebhook(payload []byte) error {
@@ -138,61 +138,61 @@
   }
   ```
 
-- [ ] **Add idempotency check**
-  - [ ] Check if transaction already processed by orderNumber
-  - [ ] Skip if already processed successfully
-  - [ ] Prevent double-crediting
+- [x] **Add idempotency check**
+  - [x] Check if transaction already processed by orderNumber
+  - [x] Skip if already processed successfully
+  - [x] Prevent double-crediting
 
-- [ ] **Test various payment statuses**
-  - [ ] [ ] pending → NOT credited
-  - [ ] [ ] success → credited
-  - [ ] [ ] failed → NOT credited
-  - [ ] [ ] cancelled → NOT credited
+- [x] **Test various payment statuses**
+  - [x] [ ] pending → NOT credited
+  - [x] [ ] success → credited
+  - [x] [ ] failed → NOT credited
+  - [x] [ ] cancelled → NOT credited
 
 ---
 
 ## 🔴 P1: HIDDEN JAVASCRIPT SENDING PAYMENT DATA TO EXTERNAL SERVER
 
-- [ ] **Audit all external requests in frontend**
-  - [ ] Search for all `fetch()` calls
-  - [ ] Search for all `axios()` calls
-  - [ ] File: `fe/src/components/feed/PostCard.tsx` (Lines 234-250)
+- [x] **Audit all external requests in frontend**
+  - [x] Search for all `fetch()` calls
+  - [x] Search for all `axios()` calls
+  - [x] File: `fe/src/components/feed/PostCard.tsx` (Lines 234-250)
 
   ```bash
   grep -r "fetch\|axios" fe/src --include="*.tsx" --include="*.ts"
   ```
 
-- [ ] **Verify payment requests go to backend only**
-  - [ ] `/api/payment/plisio/create` ✅ (backend proxy)
-  - [ ] `/api/payment/plisio/product` ✅ (backend proxy)
-  - [ ] Should NOT go to: Plisio API directly ❌
+- [x] **Verify payment requests go to backend only**
+  - [x] `/api/payment/plisio/create` ✅ (backend proxy)
+  - [x] `/api/payment/plisio/product` ✅ (backend proxy)
+  - [x] Should NOT go to: Plisio API directly ❌
 
-- [ ] **Implement Content Security Policy (CSP)**
-  - [ ] File: `fe/next.config.js` or middleware
+- [x] **Implement Content Security Policy (CSP)**
+  - [x] File: `fe/next.config.js` or middleware
   
   ```javascript
   // ✅ Restrict to backend only
   const csp = "connect-src 'self' https://api.example.com";
   ```
 
-- [ ] **Remove any direct Plisio API calls**
-  - [ ] Grep for `api.plisio.net`
-  - [ ] Should be ZERO results
-  - [ ] All calls through backend proxy
+- [x] **Remove any direct Plisio API calls**
+  - [x] Grep for `api.plisio.net`
+  - [x] Should be ZERO results
+  - [x] All calls through backend proxy
 
-- [ ] **Test in browser DevTools**
-  - [ ] Network tab
-  - [ ] No requests to `api.plisio.net`
-  - [ ] No API key in localStorage
-  - [ ] No API key in sessionStorage
+- [x] **Test in browser DevTools**
+  - [x] Network tab
+  - [x] No requests to `api.plisio.net`
+  - [x] No API key in localStorage
+  - [x] No API key in sessionStorage
 
 ---
 
 ## 🟠 P2: PAYMENT REDIRECT URL VALIDATION MISSING
 
-- [ ] **Validate callback URLs**
-  - [ ] File: `be/apps/api/internal/modules/monetization/service.go`
-  - [ ] Whitelist only frontend domain
+- [x] **Validate callback URLs**
+  - [x] File: `be/apps/api/internal/modules/monetization/service.go`
+  - [x] Whitelist only frontend domain
 
   ```go
   func ValidateCallbackURL(url string) error {
@@ -211,19 +211,19 @@
   }
   ```
 
-- [ ] **Test URL injection**
-  - [ ] [ ] Valid URL → Accept
-  - [ ] [ ] Different domain → Reject
-  - [ ] [ ] Protocol injection → Reject
-  - [ ] [ ] Redirect chain → Reject
+- [x] **Test URL injection**
+  - [x] [ ] Valid URL → Accept
+  - [x] [ ] Different domain → Reject
+  - [x] [ ] Protocol injection → Reject
+  - [x] [ ] Redirect chain → Reject
 
 ---
 
 ## 🟡 P2: NO TRANSACTION TIMEOUT/EXPIRY
 
-- [ ] **Add transaction expiry**
-  - [ ] File: `be/apps/api/internal/modules/monetization/model.go`
-  - [ ] Add `ExpiresAt` field to Transaction
+- [x] **Add transaction expiry**
+  - [x] File: `be/apps/api/internal/modules/monetization/model.go`
+  - [x] Add `ExpiresAt` field to Transaction
 
   ```go
   type Transaction struct {
@@ -239,9 +239,9 @@
   }
   ```
 
-- [ ] **Implement cleanup job**
-  - [ ] File: `be/apps/api/internal/worker/cleanup.go`
-  - [ ] Mark expired payments as failed every hour
+- [x] **Implement cleanup job**
+  - [x] File: `be/apps/api/internal/worker/cleanup.go`
+  - [x] Mark expired payments as failed every hour
   
   ```go
   func CleanupExpiredTransactions(ctx context.Context) {
@@ -251,10 +251,10 @@
   }
   ```
 
-- [ ] **Test transaction expiry**
-  - [ ] [ ] Active transaction → Can complete
-  - [ ] [ ] Expired transaction → Cannot complete
-  - [ ] [ ] Completed transaction → No expiry
+- [x] **Test transaction expiry**
+  - [x] [ ] Active transaction → Can complete
+  - [x] [ ] Expired transaction → Cannot complete
+  - [x] [ ] Completed transaction → No expiry
 
 ---
 

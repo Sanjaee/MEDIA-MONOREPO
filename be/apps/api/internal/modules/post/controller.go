@@ -24,11 +24,7 @@ func (c *Controller) GetLatestFeed(ctx *gin.Context) {
 	limitStr := ctx.DefaultQuery("limit", "10")
 	limit, _ := strconv.Atoi(limitStr)
 
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 
 	posts, err := c.service.GetLatestFeed(ctx.Request.Context(), userID, cursor, limit)
 	if err != nil {
@@ -50,11 +46,7 @@ func (c *Controller) GetLatestFeed(ctx *gin.Context) {
 
 // CreatePost handles POST /api/posts
 func (c *Controller) CreatePost(ctx *gin.Context) {
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -126,11 +118,7 @@ func (c *Controller) CreatePost(ctx *gin.Context) {
 func (c *Controller) GetPostById(ctx *gin.Context) {
 	postID := ctx.Param("id")
 
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 
 	post, err := c.service.GetPostById(ctx.Request.Context(), userID, postID)
 	if err != nil {
@@ -144,11 +132,7 @@ func (c *Controller) GetPostById(ctx *gin.Context) {
 // UpdatePost handles PUT /api/posts/:id
 func (c *Controller) UpdatePost(ctx *gin.Context) {
 	postID := ctx.Param("id")
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -174,11 +158,7 @@ func (c *Controller) UpdatePost(ctx *gin.Context) {
 // DeletePost handles DELETE /api/posts/:id
 func (c *Controller) DeletePost(ctx *gin.Context) {
 	postID := ctx.Param("id")
-	authHeader := ctx.GetHeader("Authorization")
-	var userID string
-	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-		userID = authHeader[7:]
-	}
+	userID := ctx.GetString("userID")
 	if userID == "" {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

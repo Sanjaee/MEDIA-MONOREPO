@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"media-api/internal/modules/user"
@@ -133,6 +134,11 @@ func (h *Handler) GetSessionAndUser(c *gin.Context) {
 	}
 	if s == nil || u == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+
+	if time.Now().After(s.Expires) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
 		return
 	}
 
