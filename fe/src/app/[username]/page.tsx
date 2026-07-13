@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star, Home, Settings, Megaphone, Check } from "lucide-react";
 import { getRoleBadge, getRoleNameClass, getRoleDisplayName } from "@/utils/roleStyles";
+import { FollowButton } from "@/components/FollowButton";
+import { cookies } from "next/headers";
 
 interface PageProps {
   params: {
@@ -31,6 +33,9 @@ export default async function UserProfilePage({ params }: PageProps) {
   // Fetch the user data again because TS needs to know `recentPosts` exists, but we know it does from user.actions.ts
   const profileUser = user as any; // Cast since the interface wasn't exported
   const recentPosts = profileUser.recentPosts || [];
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get("jwt")?.value || "";
 
   return (
     <main className="w-full flex flex-col bg-[#111111] text-[#cccccc] min-h-screen font-sans text-sm ">
@@ -79,9 +84,12 @@ export default async function UserProfilePage({ params }: PageProps) {
               <span className="text-white">Status:</span> <span className="text-[#00ff00] font-semibold">Online</span> <span className="text-white">(Reading Thread Simple-ish questions @ 09:20 AM)</span>
             </div>
             {!user.isBanned && (
-              <Link href={`/messages?userId=${user.id}`} className="bg-primary/20 text-primary border border-primary px-2 py-0.5 rounded shadow hover:bg-primary hover:text-black transition">
-                Send Message
-              </Link>
+              <>
+                <Link href={`/messages?userId=${user.id}`} className="bg-primary/20 text-primary border border-primary px-2 py-0.5 rounded shadow hover:bg-primary hover:text-black transition">
+                  Send Message
+                </Link>
+                <FollowButton targetUserId={user.id} initialIsFollowing={false} token={token} />
+              </>
             )}
           </div>
         </div>

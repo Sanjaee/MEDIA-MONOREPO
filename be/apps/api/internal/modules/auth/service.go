@@ -28,6 +28,7 @@ type Service interface {
 	DeleteSession(sessionToken string) error
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 	SearchUsers(query string, limit int) ([]user.User, error)
+	ToggleFollow(followerID, followingID string) (bool, error)
 
 	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*jwt.RegisteredClaims, error)
@@ -197,4 +198,17 @@ func (s *service) ValidateToken(tokenString string) (*jwt.RegisteredClaims, erro
 	}
 
 	return nil, fmt.Errorf("invalid token")
+}
+
+func (s *service) ToggleFollow(followerID, followingID string) (bool, error) {
+	if followerID == followingID {
+		return false, fmt.Errorf("cannot follow yourself")
+	}
+
+	followingUser, err := s.repo.GetUserByID(followingID)
+	if err != nil || followingUser == nil {
+		return false, fmt.Errorf("user not found")
+	}
+
+	return s.repo.ToggleFollow(followerID, followingID)
 }

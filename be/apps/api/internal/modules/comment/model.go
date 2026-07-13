@@ -2,7 +2,7 @@ package comment
 
 import (
 	"time"
-
+	"gorm.io/gorm"
 	"media-api/internal/modules/user"
 )
 
@@ -15,6 +15,9 @@ type Comment struct {
 	Content         string     `gorm:"type:text;not null" json:"content"`
 	LikeCount       *int       `gorm:"type:integer;default:0" json:"likeCount"`
 	ReplyCount      *int       `gorm:"type:integer;default:0" json:"replyCount"`
-	CreatedAt       time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
-	UpdatedAt       time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+	CreatedAt       time.Time      `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
+	UpdatedAt       time.Time      `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
+	DeletedBy       *string        `gorm:"type:varchar" json:"deletedBy,omitempty"`
+	DeleteReason    *string        `gorm:"type:varchar" json:"deleteReason,omitempty"`
 }

@@ -8,7 +8,7 @@ import (
 
 type Repository interface {
 	Create(comment *Comment) error
-	Delete(id string) error
+	Delete(id string, userID string) error
 	FindByID(id string) (*Comment, error)
 	GetCommentsByPostID(postID string, cursor string, limit int) ([]Comment, error)
 	GetRepliesByCommentID(parentID string, cursor string, limit int) ([]Comment, error)
@@ -29,8 +29,15 @@ func (r *repository) Create(comment *Comment) error {
 	return r.db.Create(comment).Error
 }
 
-func (r *repository) Delete(id string) error {
-	return r.db.Delete(&Comment{}, "id = ?", id).Error
+func (r *repository) Delete(id string, userID string) error {
+	// Ensure we set the custom fields. gorm.DeletedAt will be populated automatically by Delete,
+	// but we need to supply DeletedBy and DeleteReason first.
+	return r.db.Model(&Comment{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"deleted_by": userID,
+			"delete_reason": "user_deleted",
+		}).Delete(&Comment{}).Error
 }
 
 func (r *repository) FindByID(id string) (*Comment, error) {

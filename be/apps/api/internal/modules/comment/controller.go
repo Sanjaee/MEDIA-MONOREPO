@@ -3,6 +3,7 @@ package comment
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,11 +37,21 @@ func (c *Controller) CreateComment(ctx *gin.Context) {
 		return
 	}
 
+	content := strings.TrimSpace(req.Content)
+	if len(content) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "comment cannot be empty"})
+		return
+	}
+	if len(content) > 5000 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "comment too long, max 5000 characters"})
+		return
+	}
+
 	comment := &Comment{
 		ID:              uuid.New().String(),
 		PostID:          req.PostID,
 		AuthorID:        userID,
-		Content:         req.Content,
+		Content:         content,
 		ParentCommentID: req.ParentCommentID,
 	}
 
@@ -62,6 +73,10 @@ func (c *Controller) DeleteComment(ctx *gin.Context) {
 	}
 
 	if err := c.service.DeleteComment(ctx.Request.Context(), commentID, userID); err != nil {
+		if strings.Contains(err.Error(), "unauthorized") {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

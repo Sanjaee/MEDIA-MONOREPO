@@ -59,3 +59,15 @@ type Withdrawal struct {
 	CreatedAt   time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
 }
+
+type ProductPurchaseAudit struct {
+	ID            string     `gorm:"primaryKey;type:varchar" json:"id"`
+	PostID        string     `gorm:"type:varchar;not null" json:"postId"`
+	SellerID      string     `gorm:"type:varchar;not null" json:"sellerId"`
+	BuyerID       string     `gorm:"type:varchar;not null" json:"buyerId"`
+	Amount        int        `gorm:"type:integer;not null" json:"amount"`
+	TransactionID string     `gorm:"type:varchar;not null" json:"transactionId"`
+	Status        string     `gorm:"type:varchar;not null;default:'initiated'" json:"status"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
+	CompletedAt   *time.Time `gorm:"type:timestamp" json:"completedAt"`
+}

@@ -25,6 +25,7 @@ type Repository interface {
 	CheckUsernameExists(username string) (bool, error)
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 	SearchUsers(query string, limit int) ([]user.User, error)
+	ToggleFollow(followerID, followingID string) (bool, error)
 }
 
 type repository struct {
@@ -192,4 +193,30 @@ func (r *repository) SearchUsers(query string, limit int) ([]user.User, error) {
 		return nil, err
 	}
 	return users, nil
+}
+
+func (r *repository) ToggleFollow(followerID, followingID string) (bool, error) {
+	var follow user.Follow
+	err := r.db.Where("follower_id = ? AND following_id = ?", followerID, followingID).First(&follow).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Create follow
+			newFollow := user.Follow{
+				FollowerID:  followerID,
+				FollowingID: followingID,
+			}
+			if err := r.db.Create(&newFollow).Error; err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+		return false, err
+	}
+
+	// Delete follow
+	if err := r.db.Delete(&follow).Error; err != nil {
+		return false, err
+	}
+	return false, nil
 }

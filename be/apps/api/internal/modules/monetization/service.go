@@ -589,6 +589,21 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		return nil, "", err
 	}
 
+	// Create Audit Trail
+	var sellerID string
+	s.db.Table("posts").Select("author_id").Where("id = ?", req.PostID).Scan(&sellerID)
+
+	audit := &ProductPurchaseAudit{
+		ID:            uuid.New().String(),
+		PostID:        req.PostID,
+		SellerID:      sellerID,
+		BuyerID:       userID,
+		Amount:        tx.Amount,
+		TransactionID: orderID,
+		Status:        "initiated",
+	}
+	s.db.Create(audit)
+
 	return tx, inv.InvoiceURL, nil
 }
 
@@ -765,11 +780,19 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 			}
 			s.db.Create(purchase)
 
-			// Notify Seller
-			if s.notifService != nil {
-				// We need the seller's user ID. We can get it from the post.
-				var authorID string
-				if err := s.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error; err == nil && authorID != "" {
+			var authorID string
+			if err := s.db.Table("posts").Select("author_id").Where("id = ?", postID).Scan(&authorID).Error; err == nil && authorID != "" {
+				// Update Audit Log
+				now := time.Now()
+				s.db.Model(&ProductPurchaseAudit{}).
+					Where("transaction_id = ?", tx.ID).
+					Updates(map[string]interface{}{
+						"status":       "completed",
+						"completed_at": &now,
+					})
+
+				// Notify Seller
+				if s.notifService != nil {
 					_ = s.notifService.CreateProductSaleNotification(authorID, tx.UserID, postID, tx.Amount)
 				}
 			}
@@ -1155,9 +1178,34 @@ func (s *service) GetProductSalesStats(userID string) (*ProductSalesStats, error
 	}, nil
 }
 
+func isValidCryptoAddress(address, currency string) bool {
+	// Basic regex for common crypto addresses
+	// In production, use more robust validation per currency
+	var pattern string
+	switch currency {
+	case "BTC":
+		pattern = `^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$`
+	case "ETH", "USDT_ERC20":
+		pattern = `^0x[a-fA-F0-9]{40}$`
+	case "LTC":
+		pattern = `^[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}$`
+	case "TRX", "USDT_TRC20":
+		pattern = `^T[A-Za-z1-9]{33}$`
+	default:
+		// Fallback for others, just check it's not empty and alphanumeric
+		pattern = `^[a-zA-Z0-9]{20,100}$`
+	}
+	matched, _ := regexp.MatchString(pattern, address)
+	return matched
+}
+
 func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*Withdrawal, error) {
-	if req.AmountCents < 100 {
-		return nil, fmt.Errorf("minimum withdrawal amount is $1.00")
+	if !isValidCryptoAddress(req.ToAddress, req.Currency) {
+		return nil, fmt.Errorf("invalid crypto address format")
+	}
+
+	if req.AmountCents < 50000 {
+		return nil, fmt.Errorf("minimum withdrawal amount is $500.00")
 	}
 
 	stats, err := s.GetProductSalesStats(userID)
@@ -1195,6 +1243,14 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 	cryptoAmount := usdAmountFloat / priceUsdFloat
 	cryptoAmountStr := strconv.FormatFloat(cryptoAmount, 'f', 8, 64)
 
+	// Start transaction
+	txDB := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			txDB.Rollback()
+		}
+	}()
+
 	w := &Withdrawal{
 		ID:          uuid.New().String(),
 		UserID:      userID,
@@ -1204,7 +1260,8 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 		Status:      "pending",
 	}
 
-	if err := s.repo.CreateWithdrawal(w); err != nil {
+	if err := txDB.Create(w).Error; err != nil {
+		txDB.Rollback()
 		return nil, err
 	}
 
@@ -1218,19 +1275,23 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 
 	reqAPI, err := http.NewRequest("GET", u, nil)
 	if err != nil {
+		txDB.Rollback()
 		return nil, err
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(reqAPI)
 	if err != nil {
-		s.db.Model(w).Update("status", "error")
+		// Update status to error inside transaction
+		txDB.Model(w).Update("status", "error")
+		txDB.Commit() // Commit the error state so it's recorded
 		return nil, fmt.Errorf("failed to call plisio api: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		txDB.Rollback()
 		return nil, err
 	}
 
@@ -1244,19 +1305,25 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 	}
 
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
+		txDB.Rollback()
 		return nil, err
 	}
 
 	if plisioResp.Status == "error" || plisioResp.Status == "" {
-		s.db.Model(w).Update("status", "error")
+		txDB.Model(w).Update("status", "error")
+		txDB.Commit() // Commit the error state
 		return nil, fmt.Errorf("plisio withdrawal error: %s", plisioResp.Data.Message)
 	}
 
-	s.db.Model(w).Updates(map[string]interface{}{
+	txDB.Model(w).Updates(map[string]interface{}{
 		"status":        "completed",
 		"plisio_txn_id": plisioResp.Data.ID,
 		"tx_url":        plisioResp.Data.TxURL,
 	})
+	
+	if err := txDB.Commit().Error; err != nil {
+		return nil, err
+	}
 
 	return w, nil
 }

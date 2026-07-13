@@ -2,10 +2,12 @@ package routes
 
 import (
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"media-api/internal/cache"
 	"media-api/internal/middleware"
 	"media-api/internal/modules/auth"
 	"media-api/internal/modules/chat"
@@ -101,6 +103,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 		// User routes
 		api.GET("/users/profile/:username", authHandler.GetUserProfileByUsername)
 		api.GET("/users/search", authHandler.SearchUsers)
+		api.POST("/users/:id/follow", middleware.RateLimitMiddleware(cache.RDB, 50, 1*time.Hour), authHandler.ToggleFollow)
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")

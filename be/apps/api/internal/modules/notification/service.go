@@ -1,10 +1,15 @@
 package notification
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
 
-	"media-api/internal/websocket"
 	"github.com/google/uuid"
+	"media-api/internal/cache"
+	"media-api/internal/websocket"
 )
 
 type Service interface {
@@ -33,6 +38,10 @@ func (s *service) CreateLikeNotification(userID, actorID, postID string) error {
 	// Don't notify if the user likes their own post
 	if userID == actorID {
 		return nil
+	}
+
+	if err := checkNotificationRateLimit(userID, actorID, "LIKE"); err != nil {
+		return err
 	}
 
 	nType := "LIKE"
@@ -86,6 +95,10 @@ func (s *service) CreateCommentNotification(userID, actorID, postID, commentText
 	// Don't notify if the user comments on their own post
 	if userID == actorID {
 		return nil
+	}
+
+	if err := checkNotificationRateLimit(userID, actorID, "COMMENT"); err != nil {
+		return err
 	}
 
 	nType := "COMMENT"
@@ -213,6 +226,14 @@ func (s *service) CreateAdPaymentSuccessNotification(userID string) error {
 }
 
 func (s *service) CreateProductSaleNotification(userID, actorID, postID string, amount int) error {
+	if userID == actorID {
+		return nil
+	}
+
+	if err := checkNotificationRateLimit(userID, actorID, "PRODUCT_SALE"); err != nil {
+		return err
+	}
+
 	nType := "PRODUCT_SALE"
 	isRead := false
 	
@@ -330,4 +351,37 @@ func (s *service) DeleteNotification(notificationID string, userID string) error
 
 func (s *service) DeleteAllNotifications(userID string) error {
 	return s.repo.DeleteAllNotifications(userID)
+}
+
+func checkNotificationRateLimit(userID, actorID, notifType string) error {
+	ctx := context.Background()
+	
+	// Max 5 notifications per actor per hour to the same user
+	hourKey := fmt.Sprintf("notif_count:%s:%s", userID, actorID)
+	
+	// 5-minute deduplication for identical action types
+	recentKey := fmt.Sprintf("recent_notif:%s:%s:%s", userID, actorID, notifType)
+
+	if cache.RDB != nil {
+		// Check deduplication
+		exists, _ := cache.RDB.Exists(ctx, recentKey).Result()
+		if exists > 0 {
+			return errors.New("silently_dropped_duplicate")
+		}
+
+		// Check rate limit
+		count, _ := cache.RDB.Incr(ctx, hourKey).Result()
+		if count == 1 {
+			cache.RDB.Expire(ctx, hourKey, 1*time.Hour)
+		}
+
+		if count > 5 {
+			return errors.New("notification rate limit exceeded")
+		}
+
+		// Set deduplication lock
+		cache.RDB.Set(ctx, recentKey, true, 5*time.Minute)
+	}
+
+	return nil
 }

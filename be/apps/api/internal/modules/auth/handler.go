@@ -207,3 +207,32 @@ func (h *Handler) SearchUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, users)
 }
+
+func (h *Handler) ToggleFollow(c *gin.Context) {
+	followerID := c.GetString("userID")
+	if followerID == "" {
+		followerID = c.GetHeader("X-User-Id")
+	}
+
+	if followerID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	followingID := c.Param("id")
+	if followingID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target user id is required"})
+		return
+	}
+
+	isFollowing, err := h.service.ToggleFollow(followerID, followingID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"following": isFollowing,
+	})
+}

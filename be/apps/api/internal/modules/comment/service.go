@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"media-api/internal/queue"
 	"media-api/internal/modules/notification"
@@ -64,12 +65,11 @@ func (s *service) DeleteComment(ctx context.Context, id string, userID string) e
 		return err
 	}
 	
-	// Should check author, skipping full error handling for simplicity in migration
 	if comment.AuthorID != userID {
-		// Ideally return Unauthorized
+		return errors.New("unauthorized: you can only delete your own comments")
 	}
 
-	err = s.repository.Delete(id)
+	err = s.repository.Delete(id, userID)
 	if err != nil {
 		return err
 	}
