@@ -65,8 +65,9 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
     setSuccess(false);
 
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 1) {
-      setError("Minimum withdrawal amount is $1.00");
+    const minWithdrawal = (availableBalance > 0 && availableBalance < 1) ? availableBalance : 1;
+    if (isNaN(numAmount) || numAmount < minWithdrawal) {
+      setError(`Minimum withdrawal amount is $${minWithdrawal.toFixed(2)}`);
       return;
     }
 
@@ -196,11 +197,11 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
                   <input 
                     type="number" 
                     step="0.01"
-                    min="1"
+                    min={availableBalance > 0 && availableBalance < 1 ? availableBalance : 1}
                     max={availableBalance}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="1.00"
+                    placeholder={(availableBalance > 0 && availableBalance < 1 ? availableBalance : 1).toFixed(2)}
                     className="w-full p-3 pl-8 bg-muted/50 border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                     required
                   />
@@ -212,7 +213,7 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
                     MAX
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">Minimum withdrawal: $1.00</p>
+                <p className="text-xs text-muted-foreground">Minimum withdrawal: ${(availableBalance > 0 && availableBalance < 1 ? availableBalance : 1).toFixed(2)}</p>
               </div>
 
               {error && (
@@ -225,7 +226,7 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
               <div className="pt-2">
                 <button 
                   type="submit" 
-                  disabled={loading || availableBalance < 1 || !amount || parseFloat(amount) < 1 || parseFloat(amount) > availableBalance}
+                  disabled={loading || availableBalance <= 0 || !amount || parseFloat(amount) < (availableBalance > 0 && availableBalance < 1 ? availableBalance : 1) || parseFloat(amount) > availableBalance}
                   className="w-full py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 transition-all flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Confirm Withdrawal"}

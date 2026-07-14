@@ -8,6 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
+  debug: true,
   adapter: GoAdapter(),
   callbacks: {
     async session({ session, user }) {
@@ -28,7 +29,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           .setExpirationTime("24h")
           .sign(JWT_SECRET);
           
-        session.user.id = token; // Inject JWT token here so all actions pick it up automatically
+        // @ts-ignore - inject access token instead of overwriting user id
+        session.accessToken = token; 
       }
       return session;
     }

@@ -339,7 +339,7 @@ func (s *service) VerifyProductPurchase(userID, postID string) (bool, error) {
 	// 2. Check completed transaction
 	var count int64
 	err = s.db.Model(&Transaction{}).
-		Where("user_id = ? AND item_id = ? AND status = ? AND item_type = ?", userID, postID, "completed", "product").
+		Where("user_id = ? AND item_id = ? AND status = ? AND item_type = ?", userID, postID, "success", "product").
 		Count(&count).Error
 	
 	if err != nil {
@@ -1204,13 +1204,18 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 		return nil, fmt.Errorf("invalid crypto address format")
 	}
 
-	if req.AmountCents < 50000 {
-		return nil, fmt.Errorf("minimum withdrawal amount is $500.00")
-	}
-
 	stats, err := s.GetProductSalesStats(userID)
 	if err != nil {
 		return nil, err
+	}
+
+	minWithdrawal := 100 // $1.00
+	if stats.AvailableBalance < 100 && stats.AvailableBalance > 0 {
+		minWithdrawal = stats.AvailableBalance
+	}
+
+	if req.AmountCents < minWithdrawal {
+		return nil, fmt.Errorf("minimum withdrawal amount is $%.2f", float64(minWithdrawal)/100.0)
 	}
 
 	if req.AmountCents > stats.AvailableBalance {

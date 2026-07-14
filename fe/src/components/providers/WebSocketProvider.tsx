@@ -50,14 +50,15 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
 
   useEffect(() => {
     // Initial fetch of notifications
-    getNotificationsAction().then((data) => {
-      if (data && data.length > 0) {
-        const mapped = data.map((n: any) => ({
-          id: n.id,
-          actor: {
-            username: n.actor?.username || "System",
-            image: n.actor?.image || null,
-            role: n.actor?.role || "user",
+    if (session?.user?.id) {
+      getNotificationsAction().then((data) => {
+        if (data && data.length > 0) {
+          const mapped = data.map((n: any) => ({
+            id: n.id,
+            actor: {
+              username: n.actor?.username || "System",
+              image: n.actor?.image || null,
+              role: n.actor?.role || "user",
           },
           actionText: n.type === "LIKE" ? "liked your post" 
                     : n.type === "SYSTEM" ? (n.message?.includes("Digital Product") ? "Payment Successful" : "Role Upgraded")
@@ -73,6 +74,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         setUnreadCount(mapped.filter((n: any) => !n.isRead).length);
       }
     });
+    }
 
     if (!session?.user?.id) return;
 

@@ -1241,27 +1241,6 @@
 
 - [ ] **Audit all .env files**
   - [ ] [ ] No secrets in `.env.example`
-  - [ ] [ ] `.env*` in `.gitignore`
-  - [ ] [ ] `.gitignore` in repo
-
-  ```bash
-  grep -r "PLISIO\|JWT\|API_KEY" .env* --ignore-case
-  # Should return: NOTHING or only in .gitignore
-  ```
-
-- [ ] **Rotate all exposed keys**
-  - [ ] [ ] PLISIO_API_KEY
-  - [ ] [ ] JWT_SECRET
-  - [ ] [ ] DATABASE credentials
-  - [ ] [ ] R2/S3 credentials
-
-- [ ] **Use secrets manager**
-  - [ ] File: `docker-compose.yml` or `.env.production`
-  - [ ] Use environment variables only
-  - [ ] Never commit secrets
-
----
-
 ## 🟠 P2: NO HTTPS ENFORCEMENT
 
 - [ ] **Add HSTS header**

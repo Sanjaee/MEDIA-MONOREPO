@@ -6,7 +6,7 @@ const API_URL = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
 
 async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
   const session = await auth();
-  const token = session?.user?.id; // Using user ID as a mock token
+  const token = (session as any)?.accessToken; // Using user ID as a mock token
 
   const res = await fetch(`${API_URL}${endpoint}`, {
     ...options,

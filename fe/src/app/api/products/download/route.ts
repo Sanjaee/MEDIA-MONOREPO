@@ -20,7 +20,14 @@ export async function GET(req: NextRequest) {
     if (backendRes.status === 307 || backendRes.status === 302 || backendRes.status === 308 || backendRes.status === 301) {
         const location = backendRes.headers.get("location");
         if (location) {
-            return NextResponse.redirect(location);
+            try {
+                // If it's an absolute URL, this will succeed
+                new URL(location);
+                return NextResponse.redirect(location);
+            } catch {
+                // If it's a relative URL, resolve it against the request URL
+                return NextResponse.redirect(new URL(location, req.url));
+            }
         }
     }
 

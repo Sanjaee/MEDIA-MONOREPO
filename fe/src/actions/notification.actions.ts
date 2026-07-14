@@ -6,7 +6,7 @@ const API_URL = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
 
 async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
   const session = await auth();
-  const token = session?.user?.id;
+  const token = (session as any)?.accessToken;
 
   const res = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -26,8 +26,12 @@ async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
 }
 
 export async function getNotificationsAction(limit: number = 20, offset: number = 0) {
-  const res = await fetchFromGo(`/notifications?limit=${limit}&offset=${offset}`);
-  return res.data || [];
+  try {
+    const res = await fetchFromGo(`/notifications?limit=${limit}&offset=${offset}`);
+    return res.data || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 export async function markNotificationAsReadAction(id: string) {

@@ -107,7 +107,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")
-		adapter.Use(middleware.CSRFMiddleware())
+		adapter.Use(middleware.AdapterAuth())
 		{
 			adapter.POST("/user", authHandler.CreateUser)
 			adapter.GET("/user/:id", authHandler.GetUser)

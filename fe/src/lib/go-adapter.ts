@@ -7,26 +7,26 @@ export function GoAdapter(): Adapter {
     async createUser(user) {
       const res = await fetch(`${API_URL}/user`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" },
         body: JSON.stringify(user),
       })
       if (!res.ok) throw new Error("Failed to create user")
       return res.json()
     },
     async getUser(id) {
-      const res = await fetch(`${API_URL}/user/${id}`)
+      const res = await fetch(`${API_URL}/user/${id}`, { headers: { "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" } })
       if (res.status === 404) return null
       if (!res.ok) throw new Error("Failed to get user")
       return res.json()
     },
     async getUserByEmail(email) {
-      const res = await fetch(`${API_URL}/user/email/${email}`)
+      const res = await fetch(`${API_URL}/user/email/${email}`, { headers: { "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" } })
       if (res.status === 404) return null
       if (!res.ok) throw new Error("Failed to get user by email")
       return res.json()
     },
     async getUserByAccount({ provider, providerAccountId }) {
-      const res = await fetch(`${API_URL}/user/account/${provider}/${providerAccountId}`)
+      const res = await fetch(`${API_URL}/user/account/${provider}/${providerAccountId}`, { headers: { "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" } })
       if (res.status === 404) return null
       if (!res.ok) throw new Error("Failed to get user by account")
       return res.json()
@@ -34,7 +34,7 @@ export function GoAdapter(): Adapter {
     async updateUser(user) {
       const res = await fetch(`${API_URL}/user/${user.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" },
         body: JSON.stringify(user),
       })
       if (!res.ok) throw new Error("Failed to update user")
@@ -43,7 +43,7 @@ export function GoAdapter(): Adapter {
     async linkAccount(account) {
       const res = await fetch(`${API_URL}/account`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" },
         body: JSON.stringify(account),
       })
       if (!res.ok) throw new Error("Failed to link account")
@@ -52,7 +52,7 @@ export function GoAdapter(): Adapter {
     async createSession(session) {
       const res = await fetch(`${API_URL}/session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" },
         body: JSON.stringify(session),
       })
       if (!res.ok) throw new Error("Failed to create session")
@@ -60,9 +60,13 @@ export function GoAdapter(): Adapter {
       return { ...data, expires: new Date(data.Expires || data.expires) }
     },
     async getSessionAndUser(sessionToken) {
-      const res = await fetch(`${API_URL}/session/${sessionToken}`)
+      const res = await fetch(`${API_URL}/session/${sessionToken}`, { headers: { "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" } })
       if (res.status === 404) return null
-      if (!res.ok) throw new Error("Failed to get session and user")
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("GET SESSION ERR:", res.status, text);
+        throw new Error("Failed to get session and user")
+      }
       
       const data = await res.json()
       if (!data.session || !data.user) return null
@@ -75,7 +79,7 @@ export function GoAdapter(): Adapter {
     async updateSession(session) {
       const res = await fetch(`${API_URL}/session/${session.sessionToken}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Adapter-Secret": process.env.NEXTAUTH_SECRET || "" },
         body: JSON.stringify(session),
       })
       if (!res.ok) throw new Error("Failed to update session")

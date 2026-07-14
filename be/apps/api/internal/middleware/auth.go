@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"media-api/internal/modules/auth"
@@ -41,4 +42,16 @@ func ExtractUserID(c *gin.Context, authService auth.Service) string {
 		return ""
 	}
 	return claims.Subject
+}
+
+func AdapterAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		secret := c.GetHeader("X-Adapter-Secret")
+		if secret == "" || secret != os.Getenv("NEXTAUTH_SECRET") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Not Next.js Adapter"})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }

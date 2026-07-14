@@ -78,7 +78,7 @@ type PlisioInvoiceData struct {
 	Amount         string `json:"amount,omitempty"`
 	Currency       string `json:"currency,omitempty"`
 	SourceCurrency string `json:"source_currency,omitempty"`
-	ExpireUtc      int64  `json:"expire_utc,omitempty"`
+	ExpireUtc      interface{}  `json:"expire_utc,omitempty"`
 }
 
 type PlisioCallbackData struct {

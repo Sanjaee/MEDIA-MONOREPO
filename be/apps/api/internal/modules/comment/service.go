@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 
 	"media-api/internal/queue"
 	"media-api/internal/modules/notification"
@@ -54,7 +55,10 @@ func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
 	if queue.Client != nil {
 		payload, _ := json.Marshal(map[string]string{"post_id": comment.PostID})
 		task := asynq.NewTask("post:update_comment_count", payload)
-		_, _ = queue.Client.Enqueue(task)
+		_, err := queue.Client.Enqueue(task)
+		if err != nil {
+			log.Printf("Failed to enqueue task post:update_comment_count: %v", err)
+		}
 	}
 	return nil
 }

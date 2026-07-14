@@ -6,7 +6,7 @@ const API_URL = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    const token = session?.user?.id;
+    const token = (session as any)?.accessToken;
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -6,7 +6,7 @@ const API_URL = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    const token = session?.user?.id;
+    const token = (session as any)?.accessToken;
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    const token = session?.user?.id;
+    const token = (session as any)?.accessToken;
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
