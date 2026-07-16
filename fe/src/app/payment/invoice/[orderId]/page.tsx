@@ -48,7 +48,7 @@ export default function CustomInvoicePage() {
 
   useEffect(() => {
     if (!invoice || isSuccess) return;
-    
+
     // Timer countdown
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
@@ -112,16 +112,7 @@ export default function CustomInvoicePage() {
     }
   };
 
-  // Auto-polling fallback (every 15 seconds) in case Webhook/WebSocket fails
-  useEffect(() => {
-    if (!invoice || isSuccess) return;
-    
-    const pollTimer = setInterval(() => {
-      checkStatusManual(true);
-    }, 15000);
-
-    return () => clearInterval(pollTimer);
-  }, [invoice, isSuccess, orderId]);
+  // Auto-polling has been removed per request; relying on WebSocket and manual checks.
 
   const copyToClipboard = (text: string, type: 'address' | 'amount') => {
     navigator.clipboard.writeText(text);
@@ -195,7 +186,7 @@ export default function CustomInvoicePage() {
   return (
     <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center justify-center p-4 font-sans text-gray-900 dark:text-gray-100">
       <div className="w-full max-w-md bg-white dark:bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl">
-        
+
         {/* Header Bar */}
         <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2">
@@ -223,9 +214,9 @@ export default function CustomInvoicePage() {
         {/* QR Code Section */}
         <div className="p-8 flex flex-col items-center bg-white">
           <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-6 relative">
-            <img 
-              src={invoice.qr_code} 
-              alt="Payment QR Code" 
+            <img
+              src={invoice.qr_code}
+              alt="Payment QR Code"
               className="w-64 h-64 object-contain"
             />
             {/* Center Logo Overlay (Optional, simulating the SOL logo in the middle) */}
@@ -240,14 +231,14 @@ export default function CustomInvoicePage() {
 
           <div className="text-center space-y-4 max-w-sm">
             <p className="text-gray-500 font-medium leading-relaxed">
-              Untuk menyelesaikan pembayaran Anda, kirimkan <br/>
+              Untuk menyelesaikan pembayaran Anda, kirimkan <br />
               <span className="text-gray-900 font-bold">{amountDisplay}</span> ke alamat di bawah ini:
             </p>
 
             <div className="mt-4 break-all text-center font-bold text-gray-900 text-lg px-2">
               {invoice.wallet_hash}
             </div>
-            
+
             <div className="pt-2">
               <span className="inline-block px-4 py-1.5 bg-blue-500 text-white text-sm font-bold rounded-full shadow-sm">
                 {invoice.currency}
@@ -259,15 +250,15 @@ export default function CustomInvoicePage() {
         {/* Action Buttons */}
         <div className="px-6 py-6 bg-gray-50 flex flex-col items-center justify-center gap-4 border-t border-gray-100">
           <div className="flex w-full items-center justify-center gap-6">
-            <button 
+            <button
               onClick={() => copyToClipboard(invoice.wallet_hash, 'address')}
               className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold transition-colors group"
             >
               {copiedAddress ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5 group-hover:scale-110 transition-transform" />}
               <span>Salin alamat</span>
             </button>
-            
-            <button 
+
+            <button
               onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
               className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold transition-colors group"
             >
@@ -275,17 +266,17 @@ export default function CustomInvoicePage() {
               <span>Salin jumlah</span>
             </button>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => checkStatusManual(false)}
             className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
           >
             Cek Status Pembayaran
           </button>
         </div>
-        
+
       </div>
-      
+
       <div className="mt-6">
         <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
           ← Kembali ke beranda
