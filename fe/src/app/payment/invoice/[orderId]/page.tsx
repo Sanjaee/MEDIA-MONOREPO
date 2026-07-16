@@ -112,7 +112,16 @@ export default function CustomInvoicePage() {
     }
   };
 
-  // Auto-polling has been removed per request; relying on WebSocket and manual checks.
+  // Auto-polling fallback (every 15 seconds) to check status in the background
+  useEffect(() => {
+    if (!invoice || isSuccess) return;
+    
+    const pollTimer = setInterval(() => {
+      checkStatusManual(true);
+    }, 15000);
+
+    return () => clearInterval(pollTimer);
+  }, [invoice, isSuccess, orderId]);
 
   const copyToClipboard = (text: string, type: 'address' | 'amount') => {
     navigator.clipboard.writeText(text);

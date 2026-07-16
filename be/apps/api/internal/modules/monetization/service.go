@@ -31,7 +31,7 @@ import (
 const plisioBaseURL = "https://api.plisio.net/api/v1"
 
 type Service interface {
-	CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, string, error)
+	CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, *PlisioInvoiceData, error)
 	CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
 	CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error)
 	HandlePlisioWebhook(payload []byte) error
@@ -411,28 +411,16 @@ func (s *service) GetSignedURLFromToken(token string) (string, error) {
 	return r2URL, nil
 }
 
-func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, string, error) {
+func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, *PlisioInvoiceData, error) {
 	if s.plisioAPIKey == "" {
-		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
+		return nil, nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
 
 	// 1. Check if user already has this role
 	var currentRole string
 	if err := s.db.Table("users").Select("role").Where("id = ?", userID).Scan(&currentRole).Error; err == nil {
 		if strings.ToLower(currentRole) == strings.ToLower(req.Role) {
-			return nil, "", fmt.Errorf("you already have the %s role", req.Role)
-		}
-	}
-
-	// Check for existing pending transaction
-	existingTx, err := s.repo.FindPendingRoleTransaction(userID, req.Role)
-	if err == nil && existingTx != nil {
-		if time.Since(existingTx.CreatedAt).Hours() >= 24 || existingTx.InvoiceURL == nil || *existingTx.InvoiceURL == "" {
-			s.repo.UpdateTransaction(existingTx.ID, map[string]interface{}{
-				"status": "expired",
-			})
-		} else {
-			return existingTx, *existingTx.InvoiceURL, nil
+			return nil, nil, fmt.Errorf("you already have the %s role", req.Role)
 		}
 	}
 
@@ -449,7 +437,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	case "god":
 		amountUSD = 0.90
 	default:
-		return nil, "", fmt.Errorf("invalid role")
+		return nil, nil, fmt.Errorf("invalid role")
 	}
 
 	orderID := fmt.Sprintf("PAY_ROLE_%s", uuid.New().String())
@@ -475,34 +463,34 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 
 	httpReq, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	var plisioResp PlisioInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	if plisioResp.Status != "success" {
-		return nil, "", fmt.Errorf("plisio API error")
+		return nil, nil, fmt.Errorf("plisio API error")
 	}
 
 	var inv PlisioInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
-	status := "pending"
+	status := "new"
 	method := "crypto"
 	expireTime := time.Now().Add(24 * time.Hour)
 	tx := &Transaction{
@@ -520,10 +508,10 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
-	return tx, inv.InvoiceURL, nil
+	return tx, &inv, nil
 }
 
 func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error) {
@@ -587,7 +575,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		return nil, nil, err
 	}
 
-	status := "pending"
+	status := "new"
 	method := "crypto"
 	expireTime := time.Now().Add(24 * time.Hour)
 	// Encode Product PostID

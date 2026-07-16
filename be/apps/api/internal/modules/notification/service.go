@@ -172,7 +172,7 @@ func (s *service) CreateRoleUpgradeNotification(userID, roleName string) error {
 	payload := map[string]interface{}{
 		"actorUsername": "System",
 		"actorImage":    nil,
-		"actionText":    "Role Upgraded",
+		"actionText":    "Payment Successful",
 		"message":       message,
 		"postId":        "",
 	}
@@ -184,6 +184,22 @@ func (s *service) CreateRoleUpgradeNotification(userID, roleName string) error {
 		Payload: payloadBytes,
 	}
 	_ = websocket.PublishToRedis(msgWs)
+
+	// Also push a generic Role Upgraded one just in case the UI needs it for other components
+	payloadRole := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Role Upgraded",
+		"message":       message,
+		"postId":        "",
+	}
+	payloadRoleBytes, _ := json.Marshal(payloadRole)
+	msgRoleWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadRoleBytes,
+	}
+	_ = websocket.PublishToRedis(msgRoleWs)
 
 	return nil
 }
