@@ -277,8 +277,14 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
         amount: (post.productPrice || 0) / 100, // convert back to dollars
         currency
       });
-      if (res.data.success && res.data.data.hostedUrl) {
-        window.location.href = res.data.data.hostedUrl;
+      if (res.data.success && res.data.data) {
+        if (res.data.data.whiteLabel) {
+          // Save white-label invoice data in sessionStorage so the custom page can render it
+          sessionStorage.setItem(`invoice_${res.data.data.order_id}`, JSON.stringify(res.data.data.whiteLabel));
+          window.location.href = `/payment/invoice/${res.data.data.order_id}`;
+        } else if (res.data.data.hostedUrl) {
+          window.location.href = res.data.data.hostedUrl;
+        }
       } else {
         toast.error(res.data.error || "Failed to create invoice");
         setIsBuying(false);

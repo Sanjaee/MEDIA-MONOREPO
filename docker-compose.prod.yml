@@ -70,6 +70,7 @@ services:
       - R2_ENDPOINT=${R2_ENDPOINT}
       - R2_PUBLIC_DOMAIN=${R2_PUBLIC_DOMAIN}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - BACKEND_URL=${BACKEND_URL}
     networks:
       - backend
     depends_on:

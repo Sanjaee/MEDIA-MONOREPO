@@ -2,6 +2,7 @@ package monetization
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -19,13 +20,15 @@ type Handler struct {
 func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 	payment := router.Group("/payment")
 	{
-		// 5 requests per hour rate limit
-		payment.Use(middleware.RateLimitMiddleware(cache.RDB, 5, time.Hour))
+		// Apply rate limit ONLY to payment creation endpoints to prevent spam, not webhooks or currencies
+		creationLimiter := middleware.RateLimitMiddleware(cache.RDB, 30, time.Hour)
 		
 		payment.GET("/plisio/currencies", h.GetCurrencies)
-		payment.POST("/plisio/role", h.CreateRolePayment)
-		payment.POST("/plisio/ad", h.CreateAdPayment)
-		payment.POST("/plisio/product", h.CreateProductPayment)
+		payment.POST("/plisio/role", creationLimiter, h.CreateRolePayment)
+		payment.POST("/plisio/ad", creationLimiter, h.CreateAdPayment)
+		payment.POST("/plisio/product", creationLimiter, h.CreateProductPayment)
+		
+		// Webhook MUST NOT be rate-limited, otherwise Plisio cannot notify us!
 		payment.POST("/plisio/webhook", h.Webhook)
 		payment.POST("/plisio/verify-key", h.VerifyKey)
 		payment.GET("/plisio/verify", h.VerifyOrder)
@@ -147,29 +150,47 @@ func (h *Handler) CreateProductPayment(c *gin.Context) {
 		return
 	}
 
-	tx, invoiceURL, err := h.service.CreatePaymentForProductPlisio(userID, req)
+	tx, invData, err := h.service.CreatePaymentForProductPlisio(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	respData := map[string]interface{}{
+		"order_id":  tx.ID,
+		"hostedUrl": invData.InvoiceURL,
+	}
+
+	// Include white-label data if present
+	if invData.QrCode != "" && invData.WalletHash != "" {
+		respData["whiteLabel"] = map[string]interface{}{
+			"wallet_hash":            invData.WalletHash,
+			"qr_code":                invData.QrCode,
+			"amount":                 invData.Amount,
+			"currency":               invData.Currency,
+			"status":                 invData.Status,
+			"expected_confirmations": invData.ExpectedConfirmations,
+			"pending_amount":         invData.PendingAmount,
+			"invoice_sum":            invData.InvoiceSum,
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data": map[string]interface{}{
-			"order_id":  tx.ID,
-			"hostedUrl": invoiceURL,
-		},
+		"data":    respData,
 	})
 }
 
 func (h *Handler) Webhook(c *gin.Context) {
 	payload, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		log.Printf("Plisio webhook read error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
 		return
 	}
 
 	if err := h.service.HandlePlisioWebhook(payload); err != nil {
+		log.Printf("Plisio webhook handle error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

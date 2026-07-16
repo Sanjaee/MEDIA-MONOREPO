@@ -19,6 +19,7 @@ type Service interface {
 	CreateAdPaymentSuccessNotification(userID string) error
 	CreateProductSaleNotification(userID, actorID, postID string, amount int) error
 	CreateProductPaymentSuccessNotification(userID string, postID string) error
+	CreatePaymentPendingNotification(userID string) error
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
@@ -222,6 +223,25 @@ func (s *service) CreateAdPaymentSuccessNotification(userID string) error {
 	}
 	_ = websocket.PublishToRedis(msgWs)
 
+	return nil
+}
+
+func (s *service) CreatePaymentPendingNotification(userID string) error {
+	payload := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Payment Pending",
+		"message":       "Your payment is pending confirmation.",
+		"postId":        "",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
 	return nil
 }
 

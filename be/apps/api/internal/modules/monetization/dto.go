@@ -79,6 +79,13 @@ type PlisioInvoiceData struct {
 	Currency       string `json:"currency,omitempty"`
 	SourceCurrency string `json:"source_currency,omitempty"`
 	ExpireUtc      interface{}  `json:"expire_utc,omitempty"`
+	// White-label extra fields
+	WalletHash            string `json:"wallet_hash,omitempty"`
+	QrCode                string `json:"qr_code,omitempty"`
+	ExpectedConfirmations string `json:"expected_confirmations,omitempty"`
+	PendingAmount         string `json:"pending_amount,omitempty"`
+	Status                string `json:"status,omitempty"`
+	InvoiceSum            string `json:"invoice_sum,omitempty"`
 }
 
 type PlisioCallbackData struct {

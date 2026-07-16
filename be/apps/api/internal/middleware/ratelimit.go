@@ -18,7 +18,7 @@ func RateLimitMiddleware(rdb *redis.Client, maxRequests int, window time.Duratio
 			userID = c.ClientIP()
 		}
 
-		key := fmt.Sprintf("rate_limit:%s:%s", c.FullPath(), userID)
+		key := fmt.Sprintf("rate_limit_v2:%s:%s", c.FullPath(), userID)
 
 		if rdb != nil {
 			count, err := rdb.Incr(context.Background(), key).Result()

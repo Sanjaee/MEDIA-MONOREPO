@@ -33,7 +33,7 @@ const plisioBaseURL = "https://api.plisio.net/api/v1"
 type Service interface {
 	CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, string, error)
 	CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
-	CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, string, error)
+	CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error)
 	HandlePlisioWebhook(payload []byte) error
 	GetPlisioCurrencies() ([]PlisioCurrency, error)
 	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
@@ -262,6 +262,17 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 	if s.plisioAPIKey == "" {
 		return nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
+
+	cacheKey := "plisio:currencies"
+	if cache.RDB != nil {
+		cached, err := cache.RDB.Get(context.Background(), cacheKey).Result()
+		if err == nil && cached != "" {
+			var currencies []PlisioCurrency
+			if err := json.Unmarshal([]byte(cached), &currencies); err == nil {
+				return currencies, nil
+			}
+		}
+	}
 	u := fmt.Sprintf("%s/currencies?api_key=%s", plisioBaseURL, url.QueryEscape(s.plisioAPIKey))
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
@@ -325,6 +336,13 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 			Maintenance: c.Maintenance,
 		})
 	}
+
+	if cache.RDB != nil {
+		if bytes, err := json.Marshal(out); err == nil {
+			cache.RDB.Set(context.Background(), cacheKey, string(bytes), 1*time.Hour)
+		}
+	}
+
 	return out, nil
 }
 
@@ -508,13 +526,13 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	return tx, inv.InvoiceURL, nil
 }
 
-func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, string, error) {
+func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error) {
 	if s.plisioAPIKey == "" {
-		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
+		return nil, nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
 
 	if req.Amount < 1.0 {
-		return nil, "", fmt.Errorf("amount too small")
+		return nil, nil, fmt.Errorf("amount too small")
 	}
 
 	orderID := fmt.Sprintf("PAY_PROD_%s", uuid.New().String())
@@ -540,31 +558,33 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 
 	httpReq, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
+
+	log.Printf("Plisio raw response: %s", string(body))
 
 	var plisioResp PlisioInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	if plisioResp.Status != "success" {
-		return nil, "", fmt.Errorf("plisio API error")
+		return nil, nil, fmt.Errorf("plisio API error")
 	}
 
 	var inv PlisioInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	status := "pending"
@@ -586,7 +606,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	// Create Audit Trail
@@ -598,13 +618,13 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		PostID:        req.PostID,
 		SellerID:      sellerID,
 		BuyerID:       userID,
-		Amount:        tx.Amount,
+		Amount:        int(req.Amount * 100),
 		TransactionID: orderID,
 		Status:        "initiated",
 	}
 	s.db.Create(audit)
 
-	return tx, inv.InvoiceURL, nil
+	return tx, &inv, nil
 }
 
 func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error) {
@@ -791,9 +811,10 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 						"completed_at": &now,
 					})
 
-				// Notify Seller
+				// Notify Seller and Buyer
 				if s.notifService != nil {
 					_ = s.notifService.CreateProductSaleNotification(authorID, tx.UserID, postID, tx.Amount)
+					_ = s.notifService.CreateProductPaymentSuccessNotification(tx.UserID, postID)
 				}
 			}
 			cache.DeletePattern(context.Background(), "feed:*")
@@ -806,6 +827,10 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 			if s.notifService != nil {
 				_ = s.notifService.CreateRoleUpgradeNotification(tx.UserID, tx.ItemID)
 			}
+		}
+	} else if paymentStatus == "pending" && tx.Status != nil && *tx.Status != "pending" {
+		if s.notifService != nil {
+			_ = s.notifService.CreatePaymentPendingNotification(tx.UserID)
 		}
 	}
 
