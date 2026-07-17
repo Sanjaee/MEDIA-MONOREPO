@@ -49,6 +49,7 @@ type Service interface {
 	GetProductSalesStats(userID string) (*ProductSalesStats, error)
 	WithdrawProductEarnings(userID string, req WithdrawRequest) (*Withdrawal, error)
 	GetWithdrawalHistory(userID string) ([]Withdrawal, error)
+	GetAllTransactionsAdmin(callerUserID string) ([]AdminTransactionRow, error)
 	
 	GenerateProductToken(userID, postID string) (string, error)
 	GetSignedURLFromToken(token string) (string, error)
@@ -492,6 +493,11 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 
 	status := "new"
 	method := "crypto"
+	if inv.Currency != "" {
+		method = inv.Currency
+	} else if req.Currency != "" {
+		method = req.Currency
+	}
 	expireTime := time.Now().Add(24 * time.Hour)
 	tx := &Transaction{
 		ID:            orderID,
@@ -577,6 +583,11 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 
 	status := "new"
 	method := "crypto"
+	if inv.Currency != "" {
+		method = inv.Currency
+	} else if req.Currency != "" {
+		method = req.Currency
+	}
 	expireTime := time.Now().Add(24 * time.Hour)
 	// Encode Product PostID
 	tx := &Transaction{
@@ -676,6 +687,11 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 
 	status := "pending"
 	method := "crypto"
+	if inv.Currency != "" {
+		method = inv.Currency
+	} else if req.Currency != "" {
+		method = req.Currency
+	}
 	expireTime := time.Now().Add(24 * time.Hour)
 	tx := &Transaction{
 		ID:            orderID,
@@ -757,6 +773,9 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 	updates := map[string]interface{}{
 		"status":        paymentStatus,
 		"plisio_txn_id": cb.TxnID,
+	}
+	if cb.Currency != "" {
+		updates["payment_method"] = cb.Currency
 	}
 	if err := s.repo.UpdateTransaction(tx.ID, updates); err != nil {
 		return err
@@ -900,20 +919,27 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 		return &tx, "pending", nil
 	}
 
-	var completed bool
+	var currentStatus string = "new"
 	for _, op := range opResp.Data.Operations {
 		log.Printf("[VerifyPlisioOrder] Operation type: %s, status: %s, orderNumber: %s", op.Type, op.Status, op.Params.OrderNumber)
-		if op.Type == "invoice" && (strings.ToLower(op.Status) == "completed" || strings.ToLower(op.Status) == "mismatch") {
+		if op.Type == "invoice" {
 			if op.Params.OrderNumber == "" || op.Params.OrderNumber == *tx.PlisioOrderID {
-				completed = true
-				break
+				opStatus := strings.ToLower(op.Status)
+				if opStatus == "completed" || opStatus == "mismatch" {
+					currentStatus = "completed"
+					break
+				} else if opStatus == "pending" {
+					currentStatus = "pending"
+				} else if currentStatus != "pending" && opStatus == "new" {
+					currentStatus = "new"
+				}
 			}
 		}
 	}
 
-	if !completed {
-		log.Printf("[VerifyPlisioOrder] No completed invoice operation found for tx %s", tx.ID)
-		return &tx, "pending", nil
+	if currentStatus != "completed" {
+		log.Printf("[VerifyPlisioOrder] No completed invoice operation found for tx %s, current status: %s", tx.ID, currentStatus)
+		return &tx, currentStatus, nil
 	}
 	
 	log.Printf("[VerifyPlisioOrder] Invoice completed for tx %s, updating status and role", tx.ID)
@@ -1348,4 +1374,14 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 
 func (s *service) GetWithdrawalHistory(userID string) ([]Withdrawal, error) {
 	return s.repo.GetWithdrawalsByUserID(userID)
+}
+
+func (s *service) GetAllTransactionsAdmin(callerUserID string) ([]AdminTransactionRow, error) {
+	// Verify caller is an owner
+	var role string
+	err := s.db.Table("users").Select("role").Where("id = ?", callerUserID).Scan(&role).Error
+	if err != nil || role != "owner" {
+		return nil, fmt.Errorf("forbidden: owner access required")
+	}
+	return s.repo.GetAllTransactionsAdmin()
 }

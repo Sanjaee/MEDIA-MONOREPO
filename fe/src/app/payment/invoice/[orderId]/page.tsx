@@ -80,7 +80,7 @@ export default function CustomInvoicePage() {
           setIsPending(false);
           toast.success("Pembayaran berhasil!");
           setTimeout(() => {
-            router.push("/");
+            window.location.href = "/";
           }, 3000);
         } else if (latestNotif.actionText === "Payment Pending") {
           setIsPending(true);
@@ -98,7 +98,7 @@ export default function CustomInvoicePage() {
         setIsPending(false);
         toast.success("Pembayaran berhasil!");
         setTimeout(() => {
-          router.push("/");
+          window.location.href = "/";
         }, 3000);
       } else if (data?.data?.status === "pending") {
         setIsPending(true);

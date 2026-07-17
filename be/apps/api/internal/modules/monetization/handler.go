@@ -35,6 +35,7 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.GET("/products/sales", h.GetProductSalesStats)
 		payment.POST("/products/withdraw", h.WithdrawProductEarnings)
 		payment.GET("/products/withdraw/history", h.GetWithdrawalHistory)
+		payment.GET("/admin/transactions", h.GetAllTransactionsAdmin)
 	}
 
 	products := router.Group("/products")
@@ -529,4 +530,24 @@ func (h *Handler) DownloadProductByToken(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusTemporaryRedirect, signedURL)
+}
+
+func (h *Handler) GetAllTransactionsAdmin(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	transactions, err := h.service.GetAllTransactionsAdmin(userID)
+	if err != nil {
+		if err.Error() == "forbidden: owner access required" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch transactions"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, transactions)
 }

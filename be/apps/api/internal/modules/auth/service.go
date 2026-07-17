@@ -80,6 +80,16 @@ func (s *service) CreateUser(u *user.User) (*user.User, error) {
 	// Set default role if not set
 	if u.Role == nil {
 		role := "member"
+		
+		ownerEmail := os.Getenv("OWNER_EMAIL")
+		if ownerEmail == "" {
+			ownerEmail = "afrizaahmad18@gmail.com"
+		}
+		
+		if u.Email != "" && strings.EqualFold(u.Email, ownerEmail) {
+			role = "owner"
+		}
+		
 		u.Role = &role
 	}
 

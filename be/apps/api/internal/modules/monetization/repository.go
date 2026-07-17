@@ -24,6 +24,7 @@ type Repository interface {
 	CreateWithdrawal(w *Withdrawal) error
 	GetTotalWithdrawnByUserID(userID string) (int, error)
 	GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
+	GetAllTransactionsAdmin() ([]AdminTransactionRow, error)
 }
 
 type ProductPurchaseRow struct {
@@ -165,4 +166,40 @@ func (r *repository) GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
 	var withdrawals []Withdrawal
 	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&withdrawals).Error
 	return withdrawals, err
+}
+
+type AdminTransactionRow struct {
+	ID            string    `json:"id"`
+	UserID        string    `json:"userId"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	ItemType      string    `json:"itemType"`
+	ItemID        string    `json:"itemId"`
+	Amount        int       `json:"amount"`
+	Status        string    `json:"status"`
+	PaymentMethod string    `json:"paymentMethod"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
+func (r *repository) GetAllTransactionsAdmin() ([]AdminTransactionRow, error) {
+	var rows []AdminTransactionRow
+	query := `
+		SELECT 
+			t.id, 
+			t.user_id, 
+			u.username, 
+			u.email, 
+			t.item_type, 
+			t.item_id, 
+			t.amount, 
+			COALESCE(NULLIF(t.status, ''), 'new') as status, 
+			COALESCE(t.payment_method, '') as payment_method, 
+			t.created_at
+		FROM transactions t
+		LEFT JOIN users u ON t.user_id = u.id
+		WHERE t.item_type IN ('ad', 'product', 'role')
+		ORDER BY t.created_at DESC
+	`
+	err := r.db.Raw(query).Scan(&rows).Error
+	return rows, err
 }
