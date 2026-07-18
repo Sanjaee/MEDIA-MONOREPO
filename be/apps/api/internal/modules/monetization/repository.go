@@ -9,8 +9,8 @@ type Repository interface {
 	CreateTransaction(tx *Transaction) error
 	UpdateTransaction(id string, updates map[string]interface{}) error
 	FindTransactionByID(id string) (*Transaction, error)
-	FindTransactionByPlisioOrderNumber(orderNumber string) (*Transaction, error)
-	FindTransactionByPlisioTxnID(txnID string) (*Transaction, error)
+	FindTransactionByCryptoOrderNumber(orderNumber string) (*Transaction, error)
+	FindTransactionByCryptoTxnID(txnID string) (*Transaction, error)
 	FindPendingRoleTransaction(userID, role string) (*Transaction, error)
 
 	CreateAdSlot(ad *AdSlot) error
@@ -66,18 +66,18 @@ func (r *repository) FindTransactionByID(id string) (*Transaction, error) {
 // Since we store Plisio order_number in Metadata or directly if we add a column.
 // Wait, the model has PlisioOrderID *string which we can use for order_number.
 // And PlisioTxnID *string for txn_id.
-func (r *repository) FindTransactionByPlisioOrderNumber(orderNumber string) (*Transaction, error) {
+func (r *repository) FindTransactionByCryptoOrderNumber(orderNumber string) (*Transaction, error) {
 	var tx Transaction
-	err := r.db.Where("plisio_order_id = ?", orderNumber).First(&tx).Error
+	err := r.db.Where("crypto_order_id = ?", orderNumber).First(&tx).Error
 	if err != nil {
 		return nil, err
 	}
 	return &tx, nil
 }
 
-func (r *repository) FindTransactionByPlisioTxnID(txnID string) (*Transaction, error) {
+func (r *repository) FindTransactionByCryptoTxnID(txnID string) (*Transaction, error) {
 	var tx Transaction
-	err := r.db.Where("plisio_txn_id = ?", txnID).First(&tx).Error
+	err := r.db.Where("crypto_txn_id = ?", txnID).First(&tx).Error
 	if err != nil {
 		return nil, err
 	}

@@ -86,7 +86,7 @@ export default function AdsPage() {
     setSelectedDuration(durationDays);
     setIsBuying(true);
     try {
-      const res = await axios.get("/api/payment/plisio/currencies");
+      const res = await axios.get("/api/payment/crypto/currencies");
       if (res.data.success) {
         setCurrencies(res.data.data);
         setShowModal(true);

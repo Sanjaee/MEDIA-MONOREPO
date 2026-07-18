@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     const backendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
     
-    const backendRes = await fetch(`${backendUrl}/payment/plisio/verify?order_id=${orderId}`, {
+    const backendRes = await fetch(`${backendUrl}/payment/crypto/verify?order_id=${orderId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -43,8 +43,9 @@ export async function GET(req: NextRequest) {
 
     // Remove sensitive data before sending to client
     if (data?.data?.payment) {
-      delete data.data.payment.PlisioOrderID;
-      delete data.data.payment.PlisioTxnID;
+      delete data.data.payment.CryptoOrderID;
+      delete data.data.payment.CryptoTxnID;
+      delete data.data.payment.InvoiceURL;
     }
 
     return NextResponse.json(data);

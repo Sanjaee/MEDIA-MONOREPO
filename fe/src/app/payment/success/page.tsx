@@ -21,7 +21,7 @@ function SuccessContent() {
       hasVerified.current = true;
       
       try {
-        await axios.get(`/api/payment/plisio/verify?order_id=${orderId}`, {
+        await axios.get(`/api/payment/crypto/verify?order_id=${orderId}`, {
           headers: {
             Authorization: `Bearer ${session.user.id}`
           }
@@ -47,7 +47,7 @@ function SuccessContent() {
         <CheckCircle2 className="w-20 h-20 text-green-500 mb-6" />
         <h1 className="text-3xl font-bold text-white mb-4">Payment Successful!</h1>
         <p className="text-gray-400 mb-2">
-          Your payment has been successfully processed by Plisio.
+          Your payment has been successfully processed by Crypto.
         </p>
         <p className="text-sm text-gray-500 mb-8 break-all">
           Order ID: {orderId}

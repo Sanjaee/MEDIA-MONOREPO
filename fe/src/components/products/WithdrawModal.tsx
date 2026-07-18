@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { withdrawEarningsAction } from "@/actions/product.actions";
-import { getPlisioCurrenciesAction } from "@/actions/ads.actions";
+import { getCryptoCurrenciesAction } from "@/actions/ads.actions";
 import { X, Wallet, Loader2, AlertCircle, ChevronDown, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -29,7 +29,7 @@ export function WithdrawModal({ availableBalance, isOpen, onClose }: WithdrawMod
 
   useEffect(() => {
     if (isOpen && currencies.length === 0) {
-      getPlisioCurrenciesAction()
+      getCryptoCurrenciesAction()
         .then(data => setCurrencies(data))
         .catch(err => console.error("Failed to load currencies:", err));
     }

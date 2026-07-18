@@ -23,15 +23,15 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		// Apply rate limit ONLY to payment creation endpoints to prevent spam, not webhooks or currencies
 		creationLimiter := middleware.RateLimitMiddleware(cache.RDB, 30, time.Hour)
 		
-		payment.GET("/plisio/currencies", h.GetCurrencies)
-		payment.POST("/plisio/role", creationLimiter, h.CreateRolePayment)
-		payment.POST("/plisio/ad", creationLimiter, h.CreateAdPayment)
-		payment.POST("/plisio/product", creationLimiter, h.CreateProductPayment)
+		payment.GET("/crypto/currencies", h.GetCurrencies)
+		payment.POST("/crypto/role", creationLimiter, h.CreateRolePayment)
+		payment.POST("/crypto/ad", creationLimiter, h.CreateAdPayment)
+		payment.POST("/crypto/product", creationLimiter, h.CreateProductPayment)
 		
-		// Webhook MUST NOT be rate-limited, otherwise Plisio cannot notify us!
-		payment.POST("/plisio/webhook", h.Webhook)
-		payment.POST("/plisio/verify-key", h.VerifyKey)
-		payment.GET("/plisio/verify", h.VerifyOrder)
+		// Webhook MUST NOT be rate-limited, otherwise external crypto provider cannot notify us!
+		payment.POST("/crypto/webhook", h.Webhook)
+		payment.POST("/crypto/verify-key", h.VerifyKey)
+		payment.GET("/crypto/verify", h.VerifyOrder)
 		payment.GET("/products/sales", h.GetProductSalesStats)
 		payment.POST("/products/withdraw", h.WithdrawProductEarnings)
 		payment.GET("/products/withdraw/history", h.GetWithdrawalHistory)
@@ -61,7 +61,7 @@ func NewHandler(service Service) *Handler {
 }
 
 func (h *Handler) GetCurrencies(c *gin.Context) {
-	currencies, err := h.service.GetPlisioCurrencies()
+	currencies, err := h.service.GetCryptoCurrencies()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -87,7 +87,7 @@ func (h *Handler) CreateRolePayment(c *gin.Context) {
 		return
 	}
 
-	tx, invData, err := h.service.CreatePaymentForRolePlisio(userID, req)
+	tx, invData, err := h.service.CreatePaymentForRoleCrypto(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -135,7 +135,7 @@ func (h *Handler) CreateAdPayment(c *gin.Context) {
 		return
 	}
 
-	tx, invoiceURL, err := h.service.CreatePaymentForAdPlisio(userID, req)
+	tx, invoiceURL, err := h.service.CreatePaymentForAdCrypto(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -167,7 +167,7 @@ func (h *Handler) CreateProductPayment(c *gin.Context) {
 		return
 	}
 
-	tx, invData, err := h.service.CreatePaymentForProductPlisio(userID, req)
+	tx, invData, err := h.service.CreatePaymentForProductCrypto(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -206,8 +206,8 @@ func (h *Handler) Webhook(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.HandlePlisioWebhook(payload); err != nil {
-		log.Printf("Plisio webhook handle error: %v", err)
+	if err := h.service.HandleCryptoWebhook(payload); err != nil {
+		log.Printf("Crypto webhook handle error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -233,7 +233,7 @@ func (h *Handler) VerifyOrder(c *gin.Context) {
 		return
 	}
 
-	tx, status, err := h.service.VerifyPlisioOrder(userID, orderID)
+	tx, status, err := h.service.VerifyCryptoOrder(userID, orderID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -256,7 +256,7 @@ func (h *Handler) VerifyKey(c *gin.Context) {
 		return
 	}
 
-	isValid := h.service.VerifyPlisioSignatureOnly(data)
+	isValid := h.service.VerifyCryptoSignatureOnly(data)
 	c.JSON(http.StatusOK, gin.H{"valid": isValid})
 }
 

@@ -67,7 +67,7 @@ export default function CustomInvoicePage() {
 
   const checkStatusManual = async (isAutoPoll = false) => {
     try {
-      const res = await fetch(`/api/payment/plisio/verify?order_id=${orderId}`);
+      const res = await fetch(`/api/payment/crypto/verify?order_id=${orderId}`);
       const data = await res.json();
       if (data?.data?.status === "success") {
         setIsSuccess(true);
@@ -164,7 +164,7 @@ export default function CustomInvoicePage() {
   }
 
   const amountDisplay = `${invoice.invoice_sum || invoice.amount} ${invoice.currency}`;
-  const cryptoIcon = `https://plisio.net/img/psys-icon/${invoice.currency.toUpperCase()}.svg`;
+  const cryptoIcon = `/crypto-icons/${invoice.currency.toUpperCase()}.svg`;
 
   if (isSuccess) {
     return (

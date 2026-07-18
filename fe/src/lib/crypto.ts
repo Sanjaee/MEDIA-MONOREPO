@@ -9,7 +9,7 @@ export function getUrls(): { backendUrl: string; frontendUrl: string } {
   return { backendUrl: url, frontendUrl: url };
 }
 
-export function mapPlisioStatusToDb(status: string): string {
+export function mapCryptoStatusToDb(status: string): string {
   switch (status) {
     case 'pending':
     case 'new':

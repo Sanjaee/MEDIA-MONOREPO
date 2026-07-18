@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     const backendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
     
-    const backendRes = await fetch(`${backendUrl}/payment/plisio/product`, {
+    const backendRes = await fetch(`${backendUrl}/payment/crypto/product`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -49,7 +49,7 @@ export function PremiumCards({ userName }: { userName: string }) {
   const handleSubscribeClick = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get("/api/payment/plisio/currencies");
+      const res = await axios.get("/api/payment/crypto/currencies");
       if (res.data.success) {
         setCurrencies(res.data.data);
         setSelectedRoleForPayment(selected);
@@ -67,7 +67,7 @@ export function PremiumCards({ userName }: { userName: string }) {
   const handleCurrencySelect = async (currency: string) => {
     setIsLoading(true);
     try {
-      const res = await axios.post("/api/payment/plisio/create", {
+      const res = await axios.post("/api/payment/crypto/create", {
         role: selectedRoleForPayment,
         currency
       });

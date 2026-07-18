@@ -57,12 +57,12 @@ export async function createPendingAdAction(durationDays: number = 1) {
   return data.data;
 }
 
-// Plisio Integration for Ads
+// Crypto Integration for Ads
 
-export async function getPlisioCurrenciesAction() {
+export async function getCryptoCurrenciesAction() {
   const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
   
-  const res = await fetch(`${baseUrl}/payment/plisio/currencies`, {
+  const res = await fetch(`${baseUrl}/payment/crypto/currencies`, {
     method: "GET",
     headers: {
       "Accept": "application/json"
@@ -71,7 +71,7 @@ export async function getPlisioCurrenciesAction() {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to fetch Plisio currencies from backend");
+    throw new Error("Failed to fetch Crypto currencies from backend");
   }
 
   const data = await res.json();
@@ -92,7 +92,7 @@ export async function createAdPaymentAction(adId: string, amountUSD: number, cur
   
   // Need to pass token if backend requires it. Assuming you have a way to pass the session user id or token
   // Let's assume you pass a custom header or the backend just expects the bearer token
-  const res = await fetch(`${baseUrl}/payment/plisio/ad`, {
+  const res = await fetch(`${baseUrl}/payment/crypto/ad`, {
     method: "POST",
     headers: {
       "Accept": "application/json",

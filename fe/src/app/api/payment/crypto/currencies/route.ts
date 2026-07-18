@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 
 
-export interface PlisioCurrency {
+export interface CryptoCurrency {
   name: string;
   cid: string;
   currency: string;
@@ -22,7 +22,7 @@ export async function GET() {
   try {
     const baseUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
     
-    const res = await fetch(`${baseUrl}/payment/plisio/currencies`, {
+    const res = await fetch(`${baseUrl}/payment/crypto/currencies`, {
       method: "GET",
       headers: {
         "Accept": "application/json"
@@ -39,7 +39,7 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data, { status: 200 });
   } catch (error: any) {
-    console.error('Plisio currencies error:', error.message || error);
+    console.error('Crypto currencies error:', error.message || error);
     return NextResponse.json({ success: false, error: 'Failed to get currencies' }, { status: 500 });
   }
 }

@@ -11,10 +11,10 @@ type Transaction struct {
 	ItemID        string    `gorm:"type:varchar;not null;default:''"`
 	Amount        int       `gorm:"type:integer;not null"`
 	Status        *string   `gorm:"type:varchar;default:'pending'"`
-	PlisioOrderID *string   `gorm:"type:varchar"`
-	PlisioTxnID   *string   `gorm:"type:varchar"`
+	CryptoOrderID *string   `gorm:"type:varchar" json:"-"`
+	CryptoTxnID   *string   `gorm:"type:varchar" json:"-"`
 	PaymentMethod *string   `gorm:"type:varchar;default:'crypto'"`
-	InvoiceURL    *string   `gorm:"type:varchar"`
+	InvoiceURL    *string   `gorm:"type:varchar" json:"-"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp"`
 	UpdatedAt     time.Time  `gorm:"autoUpdateTime;type:timestamp"`
 	ExpiresAt     *time.Time `gorm:"type:timestamp"`
@@ -54,7 +54,7 @@ type Withdrawal struct {
 	Currency    string    `gorm:"type:varchar;not null" json:"currency"`
 	ToAddress   string    `gorm:"type:varchar;not null" json:"toAddress"`
 	Status      string    `gorm:"type:varchar;default:'pending'" json:"status"`
-	PlisioTxnID *string   `gorm:"type:varchar" json:"plisioTxnId"`
+	CryptoTxnID *string   `gorm:"type:varchar" json:"cryptoTxnId"`
 	TxURL       *string   `gorm:"type:varchar" json:"txUrl"`
 	CreatedAt   time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`

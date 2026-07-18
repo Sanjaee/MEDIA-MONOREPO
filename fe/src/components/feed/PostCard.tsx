@@ -255,7 +255,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     }
     setIsBuying(true);
     try {
-      const res = await axios.get("/api/payment/plisio/currencies");
+      const res = await axios.get("/api/payment/crypto/currencies");
       if (res.data.success) {
         setCurrencies(res.data.data);
         setShowCryptoModal(true);
@@ -272,7 +272,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const handleCurrencySelect = async (currency: string) => {
     setIsBuying(true);
     try {
-      const res = await axios.post("/api/payment/plisio/product", {
+      const res = await axios.post("/api/payment/crypto/product", {
         postId: post.id,
         amount: (post.productPrice || 0) / 100, // convert back to dollars
         currency

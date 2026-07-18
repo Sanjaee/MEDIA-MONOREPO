@@ -66,13 +66,13 @@ type BuyerDetail struct {
 	PurchasedAt time.Time `json:"purchasedAt"`
 }
 
-// Plisio types for crypto payment
-type PlisioInvoiceResponse struct {
+// Crypto types for crypto payment
+type CryptoInvoiceResponse struct {
 	Status string          `json:"status"`
 	Data   json.RawMessage `json:"data,omitempty"`
 }
 
-type PlisioInvoiceData struct {
+type CryptoInvoiceData struct {
 	TxnID          string `json:"txn_id"`
 	InvoiceURL     string `json:"invoice_url"`
 	Amount         string `json:"amount,omitempty"`
@@ -88,7 +88,7 @@ type PlisioInvoiceData struct {
 	InvoiceSum            string `json:"invoice_sum,omitempty"`
 }
 
-type PlisioCallbackData struct {
+type CryptoCallbackData struct {
 	TxnID          string `json:"txn_id"`
 	IpnType        string `json:"ipn_type"`
 	OrderNumber    string `json:"order_number"`
@@ -101,7 +101,7 @@ type PlisioCallbackData struct {
 	VerifyHash     string `json:"verify_hash"`
 }
 
-type PlisioCurrencyRaw struct {
+type CryptoCurrencyRaw struct {
 	Name        string      `json:"name"`
 	Cid         string      `json:"cid"`
 	Currency    string      `json:"currency"`
@@ -113,7 +113,7 @@ type PlisioCurrencyRaw struct {
 	Maintenance bool        `json:"maintenance"`
 }
 
-type PlisioCurrency struct {
+type CryptoCurrency struct {
 	Name        string `json:"name"`
 	Cid         string `json:"cid"`
 	Currency    string `json:"currency"`

@@ -31,13 +31,13 @@ import (
 const plisioBaseURL = "https://api.plisio.net/api/v1"
 
 type Service interface {
-	CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, *PlisioInvoiceData, error)
-	CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
-	CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error)
-	HandlePlisioWebhook(payload []byte) error
-	GetPlisioCurrencies() ([]PlisioCurrency, error)
-	VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error)
-	VerifyPlisioSignatureOnly(data map[string]interface{}) bool
+	CreatePaymentForRoleCrypto(userID string, req CreateRolePaymentRequest) (*Transaction, *CryptoInvoiceData, error)
+	CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
+	CreatePaymentForProductCrypto(userID string, req CreateProductPaymentRequest) (*Transaction, *CryptoInvoiceData, error)
+	HandleCryptoWebhook(payload []byte) error
+	GetCryptoCurrencies() ([]CryptoCurrency, error)
+	VerifyCryptoOrder(userID, orderID string) (*Transaction, string, error)
+	VerifyCryptoSignatureOnly(data map[string]interface{}) bool
 
 	CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error)
 	GetPendingAdSlots(userID string) ([]AdSlot, error)
@@ -222,7 +222,7 @@ func stripVerifyHashFromJSON(raw []byte) string {
 	return strings.TrimSpace(s)
 }
 
-func (s *service) VerifyPlisioSignatureOnly(data map[string]interface{}) bool {
+func (s *service) VerifyCryptoSignatureOnly(data map[string]interface{}) bool {
 	return verifyPlisioCallback(data, s.plisioAPIKey, nil)
 }
 
@@ -259,7 +259,7 @@ func verifyPlisioCallback(data map[string]interface{}, apiKey string, rawPayload
 	return subtle.ConstantTimeCompare([]byte(computedHash), []byte(verifyHash)) == 1
 }
 
-func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
+func (s *service) GetCryptoCurrencies() ([]CryptoCurrency, error) {
 	if s.plisioAPIKey == "" {
 		return nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
@@ -268,7 +268,7 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 	if cache.RDB != nil {
 		cached, err := cache.RDB.Get(context.Background(), cacheKey).Result()
 		if err == nil && cached != "" {
-			var currencies []PlisioCurrency
+			var currencies []CryptoCurrency
 			if err := json.Unmarshal([]byte(cached), &currencies); err == nil {
 				return currencies, nil
 			}
@@ -307,12 +307,12 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 		return nil, fmt.Errorf("plisio API error: %s", string(wrap.Data))
 	}
 
-	var currenciesData []PlisioCurrencyRaw
+	var currenciesData []CryptoCurrencyRaw
 	if err := json.Unmarshal(wrap.Data, &currenciesData); err != nil {
 		return nil, fmt.Errorf("failed to parse currencies: %v", err)
 	}
 
-	var out []PlisioCurrency
+	var out []CryptoCurrency
 	for _, c := range currenciesData {
 		if c.Hidden != nil {
 			if h, ok := c.Hidden.(float64); ok && h != 0 {
@@ -325,11 +325,11 @@ func (s *service) GetPlisioCurrencies() ([]PlisioCurrency, error) {
 		if c.Cid == "" {
 			c.Cid = c.Currency
 		}
-		out = append(out, PlisioCurrency{
+		out = append(out, CryptoCurrency{
 			Name:        c.Name,
 			Cid:         c.Cid,
 			Currency:    c.Currency,
-			Icon:        c.Icon,
+			Icon:        fmt.Sprintf("/crypto-icons/%s.svg", c.Currency),
 			PriceUsd:    plisioToString(c.PriceUsd),
 			RateUsd:     plisioToString(c.RateUsd),
 			MinSumIn:    plisioToString(c.MinSumIn),
@@ -412,7 +412,7 @@ func (s *service) GetSignedURLFromToken(token string) (string, error) {
 	return r2URL, nil
 }
 
-func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymentRequest) (*Transaction, *PlisioInvoiceData, error) {
+func (s *service) CreatePaymentForRoleCrypto(userID string, req CreateRolePaymentRequest) (*Transaction, *CryptoInvoiceData, error) {
 	if s.plisioAPIKey == "" {
 		return nil, nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
@@ -444,7 +444,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	orderID := fmt.Sprintf("PAY_ROLE_%s", uuid.New().String())
 	orderNumber := uuid.New().String()
 
-	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
+	callbackURL := s.backendURL + "/api/payment/crypto/webhook?json=true"
 
 	params := url.Values{}
 	params.Add("api_key", s.plisioAPIKey)
@@ -478,7 +478,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 		return nil, nil, err
 	}
 
-	var plisioResp PlisioInvoiceResponse
+	var plisioResp CryptoInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
 		return nil, nil, err
 	}
@@ -486,7 +486,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 		return nil, nil, fmt.Errorf("plisio API error")
 	}
 
-	var inv PlisioInvoiceData
+	var inv CryptoInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
 		return nil, nil, err
 	}
@@ -507,8 +507,8 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 		Amount:        int(amountUSD * 100), // in cents
 		Status:        &status,
 		PaymentMethod: &method,
-		PlisioOrderID: &orderNumber,
-		PlisioTxnID:   &inv.TxnID,
+		CryptoOrderID: &orderNumber,
+		CryptoTxnID:   &inv.TxnID,
 		InvoiceURL:    &inv.InvoiceURL,
 		ExpiresAt:     &expireTime,
 	}
@@ -520,7 +520,7 @@ func (s *service) CreatePaymentForRolePlisio(userID string, req CreateRolePaymen
 	return tx, &inv, nil
 }
 
-func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProductPaymentRequest) (*Transaction, *PlisioInvoiceData, error) {
+func (s *service) CreatePaymentForProductCrypto(userID string, req CreateProductPaymentRequest) (*Transaction, *CryptoInvoiceData, error) {
 	if s.plisioAPIKey == "" {
 		return nil, nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
@@ -532,7 +532,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 	orderID := fmt.Sprintf("PAY_PROD_%s", uuid.New().String())
 	orderNumber := uuid.New().String()
 
-	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
+	callbackURL := s.backendURL + "/api/payment/crypto/webhook?json=true"
 
 	params := url.Values{}
 	params.Add("api_key", s.plisioAPIKey)
@@ -568,7 +568,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 
 	log.Printf("Plisio raw response: %s", string(body))
 
-	var plisioResp PlisioInvoiceResponse
+	var plisioResp CryptoInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
 		return nil, nil, err
 	}
@@ -576,7 +576,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		return nil, nil, fmt.Errorf("plisio API error")
 	}
 
-	var inv PlisioInvoiceData
+	var inv CryptoInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
 		return nil, nil, err
 	}
@@ -598,8 +598,8 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 		Amount:            int(req.Amount * 100), // in cents
 		Status:            &status,
 		PaymentMethod:     &method,
-		PlisioOrderID:     &orderNumber,
-		PlisioTxnID:       &inv.TxnID,
+		CryptoOrderID:     &orderNumber,
+		CryptoTxnID:       &inv.TxnID,
 		InvoiceURL:        &inv.InvoiceURL,
 		ExpiresAt:         &expireTime,
 	}
@@ -626,7 +626,7 @@ func (s *service) CreatePaymentForProductPlisio(userID string, req CreateProduct
 	return tx, &inv, nil
 }
 
-func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentRequest) (*Transaction, string, error) {
+func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, string, error) {
 	if s.plisioAPIKey == "" {
 		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
@@ -638,7 +638,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 	orderID := fmt.Sprintf("PAY_AD_%s", uuid.New().String())
 	orderNumber := uuid.New().String()
 
-	callbackURL := s.backendURL + "/api/payment/plisio/webhook?json=true"
+	callbackURL := s.backendURL + "/api/payment/crypto/webhook?json=true"
 
 	params := url.Values{}
 	params.Add("api_key", s.plisioAPIKey)
@@ -672,7 +672,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 		return nil, "", err
 	}
 
-	var plisioResp PlisioInvoiceResponse
+	var plisioResp CryptoInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
 		return nil, "", err
 	}
@@ -680,7 +680,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 		return nil, "", fmt.Errorf("plisio API error")
 	}
 
-	var inv PlisioInvoiceData
+	var inv CryptoInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
 		return nil, "", err
 	}
@@ -701,8 +701,8 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 		Amount:        int(req.Amount * 100),
 		Status:        &status,
 		PaymentMethod: &method,
-		PlisioOrderID: &orderNumber,
-		PlisioTxnID:   &inv.TxnID,
+		CryptoOrderID: &orderNumber,
+		CryptoTxnID:   &inv.TxnID,
 		ExpiresAt:     &expireTime,
 	}
 
@@ -720,7 +720,7 @@ func (s *service) CreatePaymentForAdPlisio(userID string, req CreateAdPaymentReq
 	return tx, inv.InvoiceURL, nil
 }
 
-func (s *service) HandlePlisioWebhook(payload []byte) error {
+func (s *service) HandleCryptoWebhook(payload []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(payload, &data); err != nil {
 		return err
@@ -729,7 +729,7 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 		return fmt.Errorf("invalid Plisio callback verification")
 	}
 
-	var cb PlisioCallbackData
+	var cb CryptoCallbackData
 	if err := json.Unmarshal(payload, &cb); err != nil {
 		return err
 	}
@@ -748,9 +748,9 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 		cache.RDB.Set(context.Background(), nonceKey, true, 5*time.Minute)
 	}
 
-	tx, err := s.repo.FindTransactionByPlisioOrderNumber(cb.OrderNumber)
+	tx, err := s.repo.FindTransactionByCryptoOrderNumber(cb.OrderNumber)
 	if err != nil || tx == nil {
-		tx, err = s.repo.FindTransactionByPlisioTxnID(cb.TxnID)
+		tx, err = s.repo.FindTransactionByCryptoTxnID(cb.TxnID)
 		if err != nil || tx == nil {
 			return fmt.Errorf("transaction not found")
 		}
@@ -772,7 +772,7 @@ func (s *service) HandlePlisioWebhook(payload []byte) error {
 
 	updates := map[string]interface{}{
 		"status":        paymentStatus,
-		"plisio_txn_id": cb.TxnID,
+		"crypto_txn_id": cb.TxnID,
 	}
 	if cb.Currency != "" {
 		updates["payment_method"] = cb.Currency
@@ -889,7 +889,7 @@ func (s *service) fetchPlisioOperations(search string) (*plisioOperationsRespons
 	return &op, nil
 }
 
-func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, string, error) {
+func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, string, error) {
 	var tx Transaction
 	err := s.db.Where("id = ?", orderID).First(&tx).Error
 	if err != nil {
@@ -903,27 +903,27 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 		return &tx, "success", nil
 	}
 
-	if tx.PlisioOrderID == nil || *tx.PlisioOrderID == "" {
-		log.Printf("[VerifyPlisioOrder] PlisioOrderID is nil for tx %s", tx.ID)
+	if tx.CryptoOrderID == nil || *tx.CryptoOrderID == "" {
+		log.Printf("[VerifyCryptoOrder] CryptoOrderID is nil for tx %s", tx.ID)
 		return &tx, "pending", nil
 	}
 
-	log.Printf("[VerifyPlisioOrder] Fetching operations for tx %s with PlisioOrderID %s", tx.ID, *tx.PlisioOrderID)
-	opResp, err := s.fetchPlisioOperations(*tx.PlisioOrderID)
+	log.Printf("[VerifyCryptoOrder] Fetching operations for tx %s with CryptoOrderID %s", tx.ID, *tx.CryptoOrderID)
+	opResp, err := s.fetchPlisioOperations(*tx.CryptoOrderID)
 	if err != nil {
-		log.Printf("[VerifyPlisioOrder] fetchPlisioOperations err: %v", err)
+		log.Printf("[VerifyCryptoOrder] fetchPlisioOperations err: %v", err)
 		return &tx, "pending", nil
 	}
 	if opResp.Status != "success" {
-		log.Printf("[VerifyPlisioOrder] opResp status is not success: %s", opResp.Status)
+		log.Printf("[VerifyCryptoOrder] opResp status is not success: %s", opResp.Status)
 		return &tx, "pending", nil
 	}
 
 	var currentStatus string = "new"
 	for _, op := range opResp.Data.Operations {
-		log.Printf("[VerifyPlisioOrder] Operation type: %s, status: %s, orderNumber: %s", op.Type, op.Status, op.Params.OrderNumber)
+		log.Printf("[VerifyCryptoOrder] Operation type: %s, status: %s, orderNumber: %s", op.Type, op.Status, op.Params.OrderNumber)
 		if op.Type == "invoice" {
-			if op.Params.OrderNumber == "" || op.Params.OrderNumber == *tx.PlisioOrderID {
+			if op.Params.OrderNumber == "" || op.Params.OrderNumber == *tx.CryptoOrderID {
 				opStatus := strings.ToLower(op.Status)
 				if opStatus == "completed" || opStatus == "mismatch" {
 					currentStatus = "completed"
@@ -938,11 +938,11 @@ func (s *service) VerifyPlisioOrder(userID, orderID string) (*Transaction, strin
 	}
 
 	if currentStatus != "completed" {
-		log.Printf("[VerifyPlisioOrder] No completed invoice operation found for tx %s, current status: %s", tx.ID, currentStatus)
+		log.Printf("[VerifyCryptoOrder] No completed invoice operation found for tx %s, current status: %s", tx.ID, currentStatus)
 		return &tx, currentStatus, nil
 	}
 	
-	log.Printf("[VerifyPlisioOrder] Invoice completed for tx %s, updating status and role", tx.ID)
+	log.Printf("[VerifyCryptoOrder] Invoice completed for tx %s, updating status and role", tx.ID)
 
 	// Update status and role
 	status := "success"
@@ -1261,12 +1261,12 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 		return nil, fmt.Errorf("insufficient balance")
 	}
 
-	currencies, err := s.GetPlisioCurrencies()
+	currencies, err := s.GetCryptoCurrencies()
 	if err != nil {
 		return nil, err
 	}
 
-	var targetCurrency *PlisioCurrency
+	var targetCurrency *CryptoCurrency
 	for _, c := range currencies {
 		if c.Currency == req.Currency || c.Cid == req.Currency {
 			targetCurrency = &c

@@ -52,7 +52,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 
 	monetizationRepo := monetization.NewRepository(db)
 	
-	plisioAPIKey := os.Getenv("PLISIO_API_KEY")
+	cryptoAPIKey := os.Getenv("PLISIO_API_KEY")
 	appURL := os.Getenv("NEXT_PUBLIC_APP_URL")
 	if appURL == "" {
 		appURL = "http://localhost:3000"
@@ -62,7 +62,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 		backendURL = "http://localhost:8080"
 	}
 	
-	monetizationService := monetization.NewService(monetizationRepo, db, notificationService, store, plisioAPIKey, appURL, backendURL)
+	monetizationService := monetization.NewService(monetizationRepo, db, notificationService, store, cryptoAPIKey, appURL, backendURL)
 
 	monetizationHandler := monetization.NewHandler(monetizationService)
 
