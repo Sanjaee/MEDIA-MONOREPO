@@ -29,6 +29,7 @@ type Service interface {
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 	SearchUsers(query string, limit int) ([]user.User, error)
 	ToggleFollow(followerID, followingID string) (bool, error)
+	GetAllUsersAdmin(adminUserID string) ([]user.User, error)
 
 	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*jwt.RegisteredClaims, error)
@@ -221,4 +222,16 @@ func (s *service) ToggleFollow(followerID, followingID string) (bool, error) {
 	}
 
 	return s.repo.ToggleFollow(followerID, followingID)
+}
+
+func (s *service) GetAllUsersAdmin(adminUserID string) ([]user.User, error) {
+	adminUser, err := s.repo.GetUserByID(adminUserID)
+	if err != nil || adminUser == nil {
+		return nil, fmt.Errorf("admin user not found")
+	}
+	if adminUser.Role == nil || *adminUser.Role != "owner" {
+		return nil, fmt.Errorf("forbidden: owner access required")
+	}
+
+	return s.repo.GetAllUsersAdmin()
 }

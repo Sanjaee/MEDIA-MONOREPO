@@ -35,9 +35,35 @@ export async function getNewUserRegistrations() {
   return [];
 }
 
-export async function getAllUsers() {
+export type AdminUserRow = {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  role: string;
+  is_verified: boolean;
+  is_banned: boolean;
+  createdAt: string;
+};
+
+export async function getAllUsers(): Promise<AdminUserRow[]> {
   await checkAdmin();
-  return [];
+  const session = await auth();
+  const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  
+  const res = await fetch(`${backendUrl}/admin/users`, {
+    headers: {
+      Authorization: `Bearer ${(session as any)?.accessToken}`,
+    },
+    cache: "no-store",
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to fetch admin users: ${res.statusText}`);
+  }
+  
+  const data = await res.json();
+  return data || [];
 }
 
 export type AdminTransactionRow = {

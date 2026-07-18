@@ -236,3 +236,27 @@ func (h *Handler) ToggleFollow(c *gin.Context) {
 		"following": isFollowing,
 	})
 }
+
+func (h *Handler) GetAllUsersAdmin(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
+	}
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	users, err := h.service.GetAllUsersAdmin(userID)
+	if err != nil {
+		if err.Error() == "forbidden: owner access required" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}

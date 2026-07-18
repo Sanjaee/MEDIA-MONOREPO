@@ -26,6 +26,7 @@ type Repository interface {
 	GetUserProfileByUsername(username string) (map[string]interface{}, error)
 	SearchUsers(query string, limit int) ([]user.User, error)
 	ToggleFollow(followerID, followingID string) (bool, error)
+	GetAllUsersAdmin() ([]user.User, error)
 }
 
 type repository struct {
@@ -219,4 +220,10 @@ func (r *repository) ToggleFollow(followerID, followingID string) (bool, error) 
 		return false, err
 	}
 	return false, nil
+}
+
+func (r *repository) GetAllUsersAdmin() ([]user.User, error) {
+	var users []user.User
+	err := r.db.Order("created_at DESC").Find(&users).Error
+	return users, err
 }
