@@ -136,28 +136,13 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 			var p Post
 			if err := db.Preload("Author").First(&p, "id = ?", payload.PostID).Error; err == nil {
 				if hub != nil {
-					var actorUsername, actorImage string
-					if p.Author != nil {
-						if p.Author.Username != nil {
-							actorUsername = *p.Author.Username
-						} else if p.Author.Name != nil {
-							actorUsername = *p.Author.Name
-						} else {
-							actorUsername = "You"
-						}
-						if p.Author.Image != nil {
-							actorImage = *p.Author.Image
-						}
-					} else {
-						actorUsername = "You"
-					}
-
 					notificationPayload, _ := json.Marshal(map[string]interface{}{
-						"actorUsername": actorUsername,
-						"actorImage":    actorImage,
-						"actionText":    "has finished uploading your media!",
-						"message":       "Your post media is now ready to view.",
+						"actorUsername": "System",
+						"actorImage":    nil,
+						"actionText":    "Media Uploaded",
+						"message":       "Your post is ready.",
 						"postId":        p.ID,
+						"type":          "SYSTEM",
 					})
 					hub.SendToUser <- &websocket.MessagePayload{
 						UserID:  p.AuthorID,

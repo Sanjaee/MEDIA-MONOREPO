@@ -21,6 +21,7 @@ type Service interface {
 	DeletePost(ctx context.Context, postID, userID string) error
 	GetLatestFeed(ctx context.Context, userID string, cursor string, limit int) ([]Post, error)
 	GetTrendingFeed(ctx context.Context, userID string, cursorScore float64, cursorID string, limit int) ([]Post, error)
+	GetSearchFeed(ctx context.Context, userID string, keyword string, cursor string, limit int) ([]Post, error)
 }
 
 type service struct {
@@ -174,6 +175,26 @@ func (s *service) GetTrendingFeed(ctx context.Context, userID string, cursorScor
 	posts = scrubPosts(posts, userID)
 
 	cache.Set(ctx, cacheKey, posts, 3*time.Minute)
+
+	return posts, nil
+}
+
+func (s *service) GetSearchFeed(ctx context.Context, userID string, keyword string, cursor string, limit int) ([]Post, error) {
+	cacheKey := fmt.Sprintf("feed:search:u%s:q%s:c%s:l%d", userID, keyword, cursor, limit)
+	var posts []Post
+
+	err := cache.Get(ctx, cacheKey, &posts)
+	if err == nil && len(posts) > 0 {
+		return posts, nil
+	}
+
+	posts, err = s.repository.GetSearchFeed(userID, keyword, cursor, limit)
+	if err != nil {
+		return nil, err
+	}
+	posts = scrubPosts(posts, userID)
+
+	cache.Set(ctx, cacheKey, posts, 1*time.Minute)
 
 	return posts, nil
 }

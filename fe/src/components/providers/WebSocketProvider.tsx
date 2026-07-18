@@ -57,8 +57,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             id: n.id,
             actor: {
               username: n.actor?.username || "System",
-              image: n.actor?.image || null,
-              role: n.actor?.role || "user",
+              image: (!n.actor?.username || n.actor?.username === "System") ? "/logo.png" : (n.actor?.image || null),
+              role: (!n.actor?.username || n.actor?.username === "System") ? "admin" : (n.actor?.role || "user"),
           },
           actionText: n.type === "LIKE" ? "liked your post" 
                     : n.type === "SYSTEM" ? (n.message?.includes("Digital Product") ? "Payment Successful" : "Role Upgraded")
@@ -104,8 +104,9 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             const payload = data.payload;
             const newNotif: Notification = {
               actor: {
-                username: payload.actorUsername || "Someone",
-                image: payload.actorImage || null,
+                username: payload.actorUsername || "System",
+                image: (!payload.actorUsername || payload.actorUsername === "System") ? "/logo.png" : (payload.actorImage || null),
+                role: (!payload.actorUsername || payload.actorUsername === "System") ? "admin" : (payload.actorRole || "user"),
               },
               actionText: payload.actionText || "",
               message: payload.message || "",

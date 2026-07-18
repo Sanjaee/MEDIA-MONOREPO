@@ -483,7 +483,7 @@ func (s *service) CreatePaymentForRoleCrypto(userID string, req CreateRolePaymen
 		return nil, nil, err
 	}
 	if plisioResp.Status != "success" {
-		return nil, nil, fmt.Errorf("plisio API error")
+		return nil, nil, fmt.Errorf("Payment service is currently under maintenance. Please try again later.")
 	}
 
 	var inv CryptoInvoiceData
@@ -573,7 +573,7 @@ func (s *service) CreatePaymentForProductCrypto(userID string, req CreateProduct
 		return nil, nil, err
 	}
 	if plisioResp.Status != "success" {
-		return nil, nil, fmt.Errorf("plisio API error")
+		return nil, nil, fmt.Errorf("Payment service is currently under maintenance. Please try again later.")
 	}
 
 	var inv CryptoInvoiceData
@@ -677,7 +677,7 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 		return nil, "", err
 	}
 	if plisioResp.Status != "success" {
-		return nil, "", fmt.Errorf("plisio API error")
+		return nil, "", fmt.Errorf("Payment service is currently under maintenance. Please try again later.")
 	}
 
 	var inv CryptoInvoiceData

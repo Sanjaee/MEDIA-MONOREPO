@@ -52,7 +52,7 @@ export function NavbarSearch() {
 
       {/* Autocomplete Dropdown Layout */}
       {isFocused && query.trim().length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-background border rounded-xl shadow-lg z-40 p-2 max-h-[400px] overflow-y-auto">
+        <div className="fixed top-[64px] left-4 right-4 md:absolute md:top-full md:left-0 md:right-0 md:mt-2 bg-background border rounded-xl shadow-lg z-40 p-2 max-h-[400px] overflow-y-auto">
           <div className="flex flex-col">
             {isLoading ? (
               <div className="p-4 flex items-center justify-center text-muted-foreground">
@@ -61,9 +61,6 @@ export function NavbarSearch() {
               </div>
             ) : searchResults && searchResults.length > 0 ? (
               <>
-                <div className="px-3 py-2">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Posts</span>
-                </div>
                 {searchResults.map((result: any) => (
                   <div 
                     key={result.id}

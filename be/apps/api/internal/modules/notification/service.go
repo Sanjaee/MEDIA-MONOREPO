@@ -1,4 +1,4 @@
-package notification
+		package notification
 
 import (
 	"context"
@@ -62,7 +62,7 @@ func (s *service) CreateLikeNotification(userID, actorID, postID string) error {
 	}
 
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
-	actorUsername := "Someone"
+	actorUsername := "System"
 	var actorImage interface{} = nil
 
 	if actorDetails != nil {
@@ -120,7 +120,7 @@ func (s *service) CreateCommentNotification(userID, actorID, postID, commentText
 	}
 
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
-	actorUsername := "Someone"
+	actorUsername := "System"
 	var actorImage interface{} = nil
 
 	if actorDetails != nil {
@@ -274,7 +274,7 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 	isRead := false
 	
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
-	actorUsername := "Someone"
+	actorUsername := "System"
 	var actorImage interface{} = nil
 
 	if actorDetails != nil {

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { Search, Edit, MoreHorizontal, Image as ImageIcon, Smile, Send } from "lucide-react";
+import { Search, Edit, MoreHorizontal, Image as ImageIcon, Smile, Send, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { getConversationsAction, getMessagesAction, createConversationAction, markConversationAsReadAction } from "@/actions/chat.actions";
@@ -218,10 +218,15 @@ function MessagesContent() {
   return (
     <>
       <div className="flex h-[calc(100vh-56px)] w-full bg-black text-white overflow-hidden border-x border-gray-800">
-        {/* Left Sidebar - Chat List */}
-        <div className="w-[350px] border-r border-gray-800 flex flex-col shrink-0">
-          <div className="p-4 flex items-center justify-between">
-            <h1 className="text-xl font-bold">Chat</h1>
+        {/* Left Pane - Conversation List */}
+        <div className={`w-full md:w-[350px] border-r border-gray-800 flex-col shrink-0 ${activeConversation ? 'hidden md:flex' : 'flex'}`}>
+          <div className="h-[60px] border-b border-gray-800 flex items-center justify-between px-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <Link href="/" className="md:hidden w-8 h-8 -ml-2 rounded-full hover:bg-gray-800 flex items-center justify-center transition">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <h1 className="text-xl font-bold">Chat</h1>
+            </div>
             <div className="flex gap-2">
               <button 
                 onClick={() => setIsSearchOpen(true)}
@@ -288,7 +293,7 @@ function MessagesContent() {
         </div>
 
         {/* Right Pane - Chat Window */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className={`flex-1 flex flex-col min-w-0 ${!activeConversation ? 'hidden md:flex' : 'flex'}`}>
           {!activeConversation ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8">
               <div className="w-16 h-16 rounded-full bg-gray-900 flex items-center justify-center mb-4">
@@ -311,6 +316,12 @@ function MessagesContent() {
                   {/* Chat Header */}
                   <div className="h-[60px] border-b border-gray-800 flex items-center justify-between px-4 shrink-0">
                     <div className="flex items-center gap-3">
+                      <button 
+                        className="md:hidden w-8 h-8 -ml-2 rounded-full hover:bg-gray-800 flex items-center justify-center transition"
+                        onClick={() => setActiveConversation(null)}
+                      >
+                        <ArrowLeft className="w-5 h-5" />
+                      </button>
                       <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden relative">
                         {otherUser?.image ? (
                           <Image src={getCloudinaryUrl(otherUser.image, "")} alt={otherUser.name || "User"} fill className="object-cover" />

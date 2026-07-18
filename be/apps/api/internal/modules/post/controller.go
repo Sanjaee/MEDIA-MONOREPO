@@ -44,6 +44,33 @@ func (c *Controller) GetLatestFeed(ctx *gin.Context) {
 	})
 }
 
+// GetSearchFeed handles GET /api/feed/search
+func (c *Controller) GetSearchFeed(ctx *gin.Context) {
+	keyword := ctx.Query("q")
+	cursor := ctx.Query("cursor")
+	limitStr := ctx.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+
+	userID := ctx.GetString("userID")
+
+	posts, err := c.service.GetSearchFeed(ctx.Request.Context(), userID, keyword, cursor, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var nextCursor string
+	if len(posts) > limit {
+		nextCursor = posts[limit].CreatedAt.Format(time.RFC3339Nano)
+		posts = posts[:limit]
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"posts":      posts,
+		"nextCursor": nextCursor,
+	})
+}
+
 // CreatePost handles POST /api/posts
 func (c *Controller) CreatePost(ctx *gin.Context) {
 	userID := ctx.GetString("userID")
@@ -184,7 +211,7 @@ func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 		feedRoutes.GET("/trending", controller.GetLatestFeed) // TODO: Implement GetTrendingFeed logic in controller
 		feedRoutes.GET("/hot", controller.GetLatestFeed)      // TODO: Implement GetHotFeed logic in controller
 		feedRoutes.GET("/media", controller.GetLatestFeed)    // TODO: Implement GetMediaFeed logic in controller
-		feedRoutes.GET("/search", controller.GetLatestFeed)   // TODO: Implement GetSearchFeed logic in controller
+		feedRoutes.GET("/search", controller.GetSearchFeed)
 		feedRoutes.GET("/bookmarks", controller.GetLatestFeed) // TODO: Implement bookmarks feed
 	}
 

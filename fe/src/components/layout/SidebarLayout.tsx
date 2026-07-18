@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 interface SidebarLayoutProps {
   navbar: React.ReactNode;
@@ -47,7 +48,7 @@ export function SidebarLayout({ navbar, leftSidebar, rightSidebar, children }: S
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen pb-16 sm:pb-0">
       {navbar}
       <div className="flex w-full max-w-7xl mx-auto justify-center flex-1">
         {leftSidebar}
@@ -56,6 +57,7 @@ export function SidebarLayout({ navbar, leftSidebar, rightSidebar, children }: S
         </div>
         {rightSidebar}
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

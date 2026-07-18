@@ -7,12 +7,14 @@ const API_URL = process.env.BACKEND_API_URL || "http://127.0.0.1:8080/api";
 async function fetchFromGo(endpoint: string, options: RequestInit = {}) {
   const session = await auth();
   const token = (session as any)?.accessToken;
+  const userId = (session?.user as any)?.id;
 
   const res = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}`, "X-User-Id": token } : {}),
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(userId ? { "X-User-Id": userId } : {}),
       ...(options.headers || {}),
     },
     cache: "no-store"
