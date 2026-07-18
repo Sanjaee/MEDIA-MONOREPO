@@ -167,20 +167,25 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
-      <div className="flex gap-3">
-        <Avatar className="w-10 h-10">
-          <AvatarImage src={session.user.image ?? ""} alt={session.user.name ?? ""} />
-          <AvatarFallback>{session.user.name?.charAt(0)}</AvatarFallback>
-        </Avatar>
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-3">
+          <Avatar className="w-10 h-10 shrink-0">
+            <AvatarImage src={session.user.image ?? ""} alt={session.user.name ?? ""} />
+            <AvatarFallback>{session.user.name?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          
+          <div className="flex-1">
+            <textarea 
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="What is happening?! (You can drop images here)" 
+              className="w-full bg-transparent outline-none resize-none min-h-[50px] text-[15px] pt-1.5"
+              maxLength={280}
+            />
+          </div>
+        </div>
         
-        <div className="flex-1">
-          <textarea 
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What is happening?! (You can drop images here)" 
-            className="w-full bg-transparent outline-none resize-none min-h-[50px] text-[15px]"
-            maxLength={280}
-          />
+        <div className="w-full">
           
           {selectedFiles.length > 0 && (
             <div className={`mt-2 ${selectedFiles.length === 1 ? 'flex justify-center w-full' : 'grid grid-cols-2 gap-2'}`}>
