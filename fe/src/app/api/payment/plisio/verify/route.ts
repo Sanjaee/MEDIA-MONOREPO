@@ -32,12 +32,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Update the session if the payment was successful and role has changed
-    if (data.Status === "success" && data.Role && data.Role !== "ad") {
+    const payment = data?.data?.payment;
+    if (data?.data?.status === "success" && payment?.ItemType === "role") {
       try {
-        await unstable_update({ user: { role: data.Role } as any });
+        await unstable_update({ user: { role: payment.ItemID } as any });
       } catch (err) {
         console.error("Session update failed:", err);
       }
+    }
+
+    // Remove sensitive data before sending to client
+    if (data?.data?.payment) {
+      delete data.data.payment.PlisioOrderID;
+      delete data.data.payment.PlisioTxnID;
     }
 
     return NextResponse.json(data);

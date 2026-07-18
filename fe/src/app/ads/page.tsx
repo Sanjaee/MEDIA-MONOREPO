@@ -577,8 +577,13 @@ export default function AdsPage() {
                     className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-[#333] hover:border-[#1d9bf0] hover:bg-[#1d9bf0]/10 transition-all disabled:opacity-50"
                   >
                     <img src={c.icon} alt={c.name} className="w-8 h-8" />
-                    <span className="text-sm font-semibold">{c.name}</span>
+                    <span className="text-sm font-semibold text-center">{c.name}</span>
                     <span className="text-xs text-gray-500">{c.currency}</span>
+                    {c.priceUsd && (
+                      <span className="text-[11px] font-medium text-green-500">
+                        ${parseFloat(c.priceUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

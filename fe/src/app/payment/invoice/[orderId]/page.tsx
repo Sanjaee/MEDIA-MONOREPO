@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, Copy, CheckCircle2 } from "lucide-react";
+import { Copy, Check, ArrowLeft, Clock, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
@@ -22,21 +22,26 @@ export default function CustomInvoicePage() {
   const { orderId } = useParams();
   const router = useRouter();
   const [invoice, setInvoice] = useState<WhiteLabelInvoice | null>(null);
-  const [timeLeft, setTimeLeft] = useState(24 * 60 * 60); // 24 hours in seconds (fallback)
+  const [timeLeft, setTimeLeft] = useState(24 * 60 * 60);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  
+  const [redirectUrl, setRedirectUrl] = useState("/");
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
+
+  const { notifications } = useWebSocket();
+  const [initialNotifCount, setInitialNotifCount] = useState(-1);
 
   useEffect(() => {
-    // Retrieve invoice data from sessionStorage
     const dataStr = sessionStorage.getItem(`invoice_${orderId}`);
     if (dataStr) {
       try {
         const data = JSON.parse(dataStr);
         setInvoice(data);
       } catch (err) {
-        console.error("Failed to parse invoice data");
         toast.error("Invalid invoice data");
         router.push("/");
       }
@@ -48,46 +53,17 @@ export default function CustomInvoicePage() {
 
   useEffect(() => {
     if (!invoice || isSuccess) return;
-
-    // Timer countdown
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
-
     return () => clearInterval(timer);
   }, [invoice, isSuccess]);
 
-  const { notifications } = useWebSocket();
-  const [initialNotifCount, setInitialNotifCount] = useState(-1);
-  const [isPending, setIsPending] = useState(false);
-
-  // Set the initial notification count so we only react to NEW notifications
   useEffect(() => {
     if (initialNotifCount === -1 && notifications.length >= 0) {
       setInitialNotifCount(notifications.length);
     }
   }, [notifications.length, initialNotifCount]);
-
-  // Listen for WebSocket notifications indicating payment success
-  useEffect(() => {
-    if (!invoice || isSuccess || initialNotifCount === -1) return;
-
-    if (notifications.length > initialNotifCount) {
-      const latestNotif = notifications[0];
-      if (latestNotif) {
-        if (latestNotif.actionText === "Payment Successful") {
-          setIsSuccess(true);
-          setIsPending(false);
-          toast.success("Pembayaran berhasil!");
-          setTimeout(() => {
-            window.location.href = "/";
-          }, 3000);
-        } else if (latestNotif.actionText === "Payment Pending") {
-          setIsPending(true);
-        }
-      }
-    }
-  }, [notifications, invoice, isSuccess, initialNotifCount, router]);
 
   const checkStatusManual = async (isAutoPoll = false) => {
     try {
@@ -96,53 +72,78 @@ export default function CustomInvoicePage() {
       if (data?.data?.status === "success") {
         setIsSuccess(true);
         setIsPending(false);
-        toast.success("Pembayaran berhasil!");
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 3000);
+        
+        // Determine redirect url based on item_type
+        const type = data.data.payment?.ItemType;
+        const iId = data.data.payment?.ItemID;
+        if (type === 'product') {
+          setRedirectUrl(`/post/${iId}`);
+        } else if (type === 'ad') {
+          setRedirectUrl('/ads');
+        } else {
+          setRedirectUrl('/');
+        }
+
+        if (!isAutoPoll) toast.success("Payment successful!");
       } else if (data?.data?.status === "pending") {
         setIsPending(true);
-        if (!isAutoPoll) toast.info("Pembayaran sedang diproses.");
+        if (!isAutoPoll) toast.info("Payment is processing.");
       } else {
-        if (!isAutoPoll) toast.info("Pembayaran belum terdeteksi. Silakan coba lagi nanti.");
+        if (!isAutoPoll) toast.info("Payment not detected yet. Please try again later.");
       }
     } catch (err) {
-      console.error("Status check failed", err);
-      if (!isAutoPoll) toast.error("Gagal mengecek status pembayaran");
+      if (!isAutoPoll) toast.error("Failed to check payment status");
     }
   };
 
-  // Auto-polling fallback (every 15 seconds) to check status in the background
+  useEffect(() => {
+    if (!invoice || isSuccess || initialNotifCount === -1) return;
+    if (notifications.length > initialNotifCount) {
+      const latestNotif = notifications[0];
+      if (latestNotif) {
+        if (latestNotif.actionText === "Payment Successful") {
+          // Fetch exact item type silently
+          checkStatusManual(true);
+          setIsSuccess(true);
+          setIsPending(false);
+          toast.success("Payment successful!");
+        } else if (latestNotif.actionText === "Payment Pending") {
+          setIsPending(true);
+        }
+      }
+    }
+  }, [notifications, invoice, isSuccess, initialNotifCount]);
+
   useEffect(() => {
     if (!invoice || isSuccess) return;
-    
     const pollTimer = setInterval(() => {
       checkStatusManual(true);
     }, 15000);
-
     return () => clearInterval(pollTimer);
   }, [invoice, isSuccess, orderId]);
+
+  // Handle countdown logic for redirect
+  useEffect(() => {
+    if (isSuccess && redirectCountdown > 0) {
+      const timer = setTimeout(() => setRedirectCountdown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (isSuccess && redirectCountdown === 0) {
+      window.location.href = redirectUrl;
+    }
+  }, [isSuccess, redirectCountdown, redirectUrl]);
 
   const copyToClipboard = (text: string, type: 'address' | 'amount') => {
     navigator.clipboard.writeText(text);
     if (type === 'address') {
       setCopiedAddress(true);
       setTimeout(() => setCopiedAddress(false), 2000);
-      toast.success("Alamat dompet disalin!");
+      toast.success("Wallet address copied!");
     } else {
       setCopiedAmount(true);
       setTimeout(() => setCopiedAmount(false), 2000);
-      toast.success("Jumlah disalin!");
+      toast.success("Amount copied!");
     }
   };
-
-  if (!invoice) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -151,25 +152,39 @@ export default function CustomInvoicePage() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-
-
+  if (!invoice) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-transparent">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-white font-medium tracking-wide">Loading invoice...</p>
+        </div>
+      </div>
+    );
+  }
 
   const amountDisplay = `${invoice.invoice_sum || invoice.amount} ${invoice.currency}`;
+  const cryptoIcon = `https://plisio.net/img/psys-icon/${invoice.currency.toUpperCase()}.svg`;
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center justify-center p-4 font-sans text-gray-900 dark:text-gray-100">
-        <div className="w-full max-w-md bg-white dark:bg-white rounded-2xl overflow-hidden shadow-2xl p-10 flex flex-col items-center justify-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
-            <CheckCircle2 className="w-12 h-12 text-green-500" />
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-4 font-sans text-white">
+        <div className="w-full max-w-sm bg-[#16181c] text-white rounded-3xl overflow-hidden shadow-2xl p-10 flex flex-col items-center justify-center text-center border border-white/10">
+          <div className="w-24 h-24 bg-black border border-white/10 text-white rounded-full flex items-center justify-center mb-6 shadow-xl">
+            <CheckCircle2 className="w-12 h-12 text-white" strokeWidth={2} />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Pembayaran Berhasil!</h2>
-          <p className="text-gray-500 text-center mb-6">
-            Terima kasih, pembayaran Anda sebesar {amountDisplay} telah kami terima.
+          <h2 className="text-2xl font-bold mb-2 uppercase tracking-wide">Payment Successful!</h2>
+          <p className="text-gray-400 mb-8 font-medium">
+            Your payment of <span className="text-white font-bold">{amountDisplay}</span> has been received.
           </p>
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Mengarahkan kembali...
+          <div className="flex flex-col items-center w-full gap-4">
+            <div className="flex items-center gap-3 text-sm text-gray-400 font-medium">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Redirecting automatically in {redirectCountdown} seconds...
+            </div>
+            <Link href={redirectUrl} className="w-full bg-white hover:bg-gray-200 text-black font-bold py-3 rounded-xl transition-colors uppercase text-sm tracking-wider shadow-lg">
+              Continue Now
+            </Link>
           </div>
         </div>
       </div>
@@ -178,117 +193,93 @@ export default function CustomInvoicePage() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center justify-center p-4 font-sans text-gray-900 dark:text-gray-100">
-        <div className="w-full max-w-md bg-white dark:bg-white rounded-2xl overflow-hidden shadow-2xl p-10 flex flex-col items-center justify-center">
-          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
-            <Loader2 className="w-12 h-12 text-yellow-500 animate-spin" />
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-4 font-sans text-white">
+        <div className="w-full max-w-sm bg-[#16181c] text-white rounded-3xl overflow-hidden shadow-2xl p-10 flex flex-col items-center justify-center text-center relative border border-white/10">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-black overflow-hidden">
+            <div className="h-full bg-white w-1/2 animate-[slide_1.5s_ease-in-out_infinite]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Menunggu Konfirmasi...</h2>
-          <p className="text-gray-500 text-center mb-6">
-            Pembayaran telah terdeteksi dan sedang menunggu konfirmasi dari jaringan blockchain. Harap tunggu sebentar.
+          <div className="w-24 h-24 bg-black border border-white/10 text-white rounded-full flex items-center justify-center mb-6 shadow-xl">
+            <Clock className="w-12 h-12 animate-pulse text-white" strokeWidth={2} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2 uppercase tracking-wide">Awaiting Confirmation</h2>
+          <p className="text-gray-400 font-medium leading-relaxed">
+            Payment detected. Please wait for blockchain confirmation. You can close this page, we will process it automatically.
           </p>
         </div>
+        <style jsx global>{`
+          @keyframes slide {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center justify-center p-4 font-sans text-gray-900 dark:text-gray-100">
-      <div className="w-full max-w-md bg-white dark:bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl">
-
-        {/* Header Bar */}
-        <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin opacity-80" />
-            <span className="text-sm font-semibold tracking-wide">Menunggu Pembayaran...</span>
-          </div>
-          <div className="text-sm font-bold tracking-wider font-mono">
-            {formatTime(timeLeft)}
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-4 font-sans text-white">
+      <div className="w-full max-w-xs flex flex-col items-center gap-2 mt-4">
+        
+        {/* Countdown Timer (Moved to top, no label) */}
+        <div className="flex flex-col items-center mb-2">
+          <div className="flex items-center gap-2 text-white bg-white/5 px-4 py-2 rounded-xl border border-white/10 shadow-inner">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <span className="font-mono text-lg font-bold tracking-wider">{formatTime(timeLeft)}</span>
           </div>
         </div>
 
-        {/* Brand & Amount Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
-          <div className="flex items-center gap-3">
-            <div className="flex bg-gradient-to-br from-blue-400 to-purple-500 text-white font-bold text-xl w-10 h-10 items-center justify-center rounded-lg shadow-sm">
-              LM
-            </div>
-            <span className="font-bold text-gray-800 text-lg">Store</span>
-          </div>
-          <div className="text-right">
-            <div className="font-bold text-xl text-gray-900">{amountDisplay}</div>
+        {/* Amount Section */}
+        <div className="flex flex-col items-center gap-1 mb-2">
+          <span className="text-gray-400 text-sm">Amount to Pay</span>
+          <div 
+            className="font-bold text-2xl text-white cursor-pointer hover:text-gray-300 transition-colors flex items-center justify-center gap-2 group w-full px-2" 
+            onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
+          >
+            <span className="text-center">{amountDisplay}</span>
+            {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
           </div>
         </div>
 
         {/* QR Code Section */}
-        <div className="p-8 flex flex-col items-center bg-white">
-          <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-6 relative">
-            <img
-              src={invoice.qr_code}
-              alt="Payment QR Code"
-              className="w-64 h-64 object-contain"
-            />
-            {/* Center Logo Overlay (Optional, simulating the SOL logo in the middle) */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center p-1 shadow-sm">
-                <div className="w-full h-full bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {invoice.currency}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center space-y-4 max-w-sm">
-            <p className="text-gray-500 font-medium leading-relaxed">
-              Untuk menyelesaikan pembayaran Anda, kirimkan <br />
-              <span className="text-gray-900 font-bold">{amountDisplay}</span> ke alamat di bawah ini:
-            </p>
-
-            <div className="mt-4 break-all text-center font-bold text-gray-900 text-lg px-2">
-              {invoice.wallet_hash}
-            </div>
-
-            <div className="pt-2">
-              <span className="inline-block px-4 py-1.5 bg-blue-500 text-white text-sm font-bold rounded-full shadow-sm">
-                {invoice.currency}
-              </span>
+        <div className="bg-white p-3 rounded-xl mb-2 relative inline-block">
+          <img
+            src={invoice.qr_code}
+            alt="Payment QR Code"
+            className="w-48 h-48 object-contain"
+          />
+          {/* Center Logo Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 border-2 border-black">
+              <img src={cryptoIcon} alt={invoice.currency} className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="px-6 py-6 bg-gray-50 flex flex-col items-center justify-center gap-4 border-t border-gray-100">
-          <div className="flex w-full items-center justify-center gap-6">
-            <button
-              onClick={() => copyToClipboard(invoice.wallet_hash, 'address')}
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold transition-colors group"
-            >
-              {copiedAddress ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5 group-hover:scale-110 transition-transform" />}
-              <span>Salin alamat</span>
-            </button>
+        <h3 className="font-bold text-[17px] text-white tracking-wide mt-2">
+          {invoice.currency.charAt(0).toUpperCase() + invoice.currency.slice(1)} Address
+        </h3>
 
-            <button
-              onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-bold transition-colors group"
-            >
-              {copiedAmount ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5 group-hover:scale-110 transition-transform" />}
-              <span>Salin jumlah</span>
-            </button>
-          </div>
-
-          <button
-            onClick={() => checkStatusManual(false)}
-            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors"
-          >
-            Cek Status Pembayaran
-          </button>
+        {/* Wallet Address - No Background, Inline Copy */}
+        <div 
+          className="flex items-center justify-center gap-2 w-full cursor-pointer group px-2 mt-1"
+          onClick={() => copyToClipboard(invoice.wallet_hash, 'address')}
+        >
+          <p className="font-bold text-white text-[17px] break-all text-center leading-relaxed">
+            {invoice.wallet_hash}
+          </p>
+          {copiedAddress ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
         </div>
+
+        <p className="text-[#888] text-sm text-center px-2 mt-3 leading-relaxed">
+          Please wait 5 - 10 seconds after payment for confirmation. Only used to receive tokens on the {invoice.currency.charAt(0).toUpperCase() + invoice.currency.slice(1)} network.
+        </p>
 
       </div>
 
-      <div className="mt-6">
-        <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">
-          ← Kembali ke beranda
+      <div className="mt-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
+          <ArrowLeft className="w-4 h-4" />
+          Cancel Payment
         </Link>
       </div>
     </div>
