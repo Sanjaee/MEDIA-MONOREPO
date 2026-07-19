@@ -30,6 +30,7 @@ export interface PostWithRelations {
   hasLiked?: boolean;
   hasBookmarked?: boolean;
   isProduct?: boolean;
+  productTitle?: string;
   productPrice?: number;
   productUrl?: string;
   hasBought?: boolean;

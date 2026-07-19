@@ -23,6 +23,7 @@ type Post struct {
 	HasLiked       bool       `gorm:"->;type:boolean" json:"hasLiked"`
 	HasBookmarked  bool       `gorm:"->;type:boolean" json:"hasBookmarked"`
 	IsProduct      *bool      `gorm:"type:boolean;default:false" json:"isProduct"`
+	ProductTitle   *string    `gorm:"type:text" json:"productTitle,omitempty"`
 	ProductPrice   *int       `gorm:"type:integer" json:"productPrice"`
 	ProductURL     *string    `gorm:"type:text" json:"productUrl,omitempty"`
 	HasBought      bool       `gorm:"->;type:boolean" json:"hasBought"`

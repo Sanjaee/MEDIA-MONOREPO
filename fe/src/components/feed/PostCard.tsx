@@ -517,7 +517,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
           <div className="mt-4 p-4 border rounded-xl bg-muted/30">
             <div className="flex justify-between items-center">
               <div>
-                <h4 className="font-semibold text-lg">Digital Product</h4>
+                <h4 className="font-semibold text-lg">{post.productTitle || "Digital Product"}</h4>
                 <p className="text-xl font-bold text-primary">${((post.productPrice || 0) / 100).toFixed(2)}</p>
               </div>
               <div>

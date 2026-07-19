@@ -18,6 +18,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState("");
   const [isProduct, setIsProduct] = useState(false);
+  const [productTitle, setProductTitle] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productUrl, setProductUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +94,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       
       if (isProduct) {
         formData.append("isProduct", "true");
+        formData.append("productTitle", productTitle);
         formData.append("productPrice", String(Math.floor(parseFloat(productPrice) * 100)));
         formData.append("productUrl", productUrl);
       }
@@ -138,6 +140,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       
       setContent("");
       setIsProduct(false);
+      setProductTitle("");
       setProductPrice("");
       setProductUrl("");
       setSelectedFiles([]);
@@ -224,6 +227,13 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
               {isProduct && (
                 <div className="flex flex-col gap-2 p-3 bg-muted rounded-xl">
                   <span className="text-sm font-semibold">Product Details</span>
+                  <input
+                    type="text"
+                    placeholder="Product Title"
+                    value={productTitle}
+                    onChange={(e) => setProductTitle(e.target.value)}
+                    className="bg-background border outline-none text-sm w-full py-2 px-3 rounded-md"
+                  />
                   <div className="flex gap-2">
                     <div className="flex items-center gap-2 bg-background rounded-md px-2 flex-1 border">
                       <span className="text-muted-foreground">$</span>
@@ -272,7 +282,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
                 
                 <Button 
                   onClick={handleSubmit} 
-                  disabled={isSubmitting || (!content.trim() && selectedFiles.length === 0) || (isProduct && (!productPrice || !productUrl))}
+                  disabled={isSubmitting || (!content.trim() && selectedFiles.length === 0) || (isProduct && (!productTitle || !productPrice || !productUrl))}
                   className="rounded-full px-5"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin w-4 h-4" /> : "Post"}

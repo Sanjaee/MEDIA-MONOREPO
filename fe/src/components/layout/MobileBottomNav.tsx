@@ -85,7 +85,7 @@ export function MobileBottomNav() {
               </button>
               <Button variant="ghost" className="text-blue-500 font-semibold hover:bg-blue-500/10 hover:text-blue-600">Drafts</Button>
             </div>
-            <div>
+            <div className="overflow-y-auto max-h-[80vh] custom-scrollbar pb-2">
               <CreatePost onSuccess={() => setOpen(false)} />
             </div>
           </DialogContent>

@@ -40,3 +40,6 @@ be/coverage.out
 # Redis/Nginx temp files
 redis/data/
 nginx/logs/
+
+# Graphify
+graphify-out/

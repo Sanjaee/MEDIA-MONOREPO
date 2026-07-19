@@ -110,6 +110,10 @@ func (c *Controller) CreatePost(ctx *gin.Context) {
 				post.ProductPrice = &price
 			}
 		}
+		if titleVals := form.Value["productTitle"]; len(titleVals) > 0 && titleVals[0] != "" {
+			titleStr := titleVals[0]
+			post.ProductTitle = &titleStr
+		}
 		if urlVals := form.Value["productUrl"]; len(urlVals) > 0 && urlVals[0] != "" {
 			urlStr := urlVals[0]
 			post.ProductURL = &urlStr
