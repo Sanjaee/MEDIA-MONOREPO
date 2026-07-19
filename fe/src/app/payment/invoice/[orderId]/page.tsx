@@ -33,7 +33,6 @@ export default function CustomInvoicePage() {
   const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   const { notifications } = useWebSocket();
-  const [initialNotifCount, setInitialNotifCount] = useState(-1);
 
   useEffect(() => {
     const dataStr = sessionStorage.getItem(`invoice_${orderId}`);
@@ -59,11 +58,7 @@ export default function CustomInvoicePage() {
     return () => clearInterval(timer);
   }, [invoice, isSuccess]);
 
-  useEffect(() => {
-    if (initialNotifCount === -1 && notifications.length >= 0) {
-      setInitialNotifCount(notifications.length);
-    }
-  }, [notifications.length, initialNotifCount]);
+  const [pageLoadTime] = useState(() => Date.now());
 
   const checkStatusManual = async (isAutoPoll = false) => {
     try {
@@ -97,28 +92,26 @@ export default function CustomInvoicePage() {
   };
 
   useEffect(() => {
-    if (!invoice || isSuccess || initialNotifCount === -1) return;
-    if (notifications.length > initialNotifCount) {
-      const latestNotif = notifications[0];
-      if (latestNotif) {
-        if (latestNotif.actionText === "Payment Successful") {
-          // Fetch exact item type silently
-          checkStatusManual(true);
-          setIsSuccess(true);
-          setIsPending(false);
-          toast.success("Payment successful!");
-        } else if (latestNotif.actionText === "Payment Pending") {
-          setIsPending(true);
-        }
+    if (!invoice || isSuccess) return;
+    
+    // Find the first notification that arrived after this page was loaded
+    const recentNotif = notifications.find(n => new Date(n.timestamp).getTime() > pageLoadTime);
+    if (recentNotif) {
+      if (recentNotif.actionText === "Payment Successful") {
+        // Just trigger a manual check, do NOT eagerly set success
+        // because the notification might be for a different payment.
+        checkStatusManual(true);
+      } else if (recentNotif.actionText === "Payment Pending") {
+        checkStatusManual(true);
       }
     }
-  }, [notifications, invoice, isSuccess, initialNotifCount]);
+  }, [notifications, invoice, isSuccess, pageLoadTime]);
 
   useEffect(() => {
     if (!invoice || isSuccess) return;
     const pollTimer = setInterval(() => {
       checkStatusManual(true);
-    }, 15000);
+    }, 3000);
     return () => clearInterval(pollTimer);
   }, [invoice, isSuccess, orderId]);
 

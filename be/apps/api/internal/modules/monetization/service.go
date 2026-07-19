@@ -1361,7 +1361,7 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 
 	txDB.Model(w).Updates(map[string]interface{}{
 		"status":        "completed",
-		"plisio_txn_id": plisioResp.Data.ID,
+		"crypto_txn_id": plisioResp.Data.ID,
 		"tx_url":        plisioResp.Data.TxURL,
 	})
 	
