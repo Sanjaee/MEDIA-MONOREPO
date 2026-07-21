@@ -16,6 +16,7 @@ interface WhiteLabelInvoice {
   expected_confirmations: string;
   pending_amount: string;
   invoice_sum: string;
+  crypto_received_amount?: string;
 }
 
 export default function CustomInvoicePage() {
@@ -64,6 +65,12 @@ export default function CustomInvoicePage() {
     try {
       const res = await fetch(`/api/payment/crypto/verify?order_id=${orderId}`);
       const data = await res.json();
+      
+      const payment = data?.data?.payment;
+      if (payment?.crypto_pending_amount) {
+        setInvoice((prev) => prev ? { ...prev, pending_amount: payment.crypto_pending_amount } : prev);
+      }
+
       if (data?.data?.status === "success") {
         setIsSuccess(true);
         setIsPending(false);
@@ -81,8 +88,13 @@ export default function CustomInvoicePage() {
 
         if (!isAutoPoll) toast.success("Payment successful!");
       } else if (data?.data?.status === "pending") {
-        setIsPending(true);
-        if (!isAutoPoll) toast.info("Payment is processing.");
+        if (payment?.crypto_pending_amount && Number(payment.crypto_pending_amount) > 0) {
+          setIsPending(false);
+          if (!isAutoPoll) toast.info("Partial payment received. Please send the remaining amount.");
+        } else {
+          setIsPending(true);
+          if (!isAutoPoll) toast.info("Payment is processing.");
+        }
       } else {
         if (!isAutoPoll) toast.info("Payment not detected yet. Please try again later.");
       }
@@ -223,18 +235,42 @@ export default function CustomInvoicePage() {
 
         {/* Amount Section */}
         <div className="flex flex-col items-center gap-1 mb-2">
-          <span className="text-gray-400 text-sm">Amount to Pay</span>
-          <div 
-            className="font-bold text-2xl text-white cursor-pointer hover:text-gray-300 transition-colors flex items-center justify-center gap-2 group w-full px-2" 
-            onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
-          >
-            <span className="text-center">{amountDisplay}</span>
-            {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
-          </div>
+          {invoice.pending_amount && Number(invoice.pending_amount) > 0 && Number(invoice.pending_amount) < Number(invoice.invoice_sum || invoice.amount) ? (
+            <>
+              <span className="text-gray-400 text-sm mt-2 text-center text-[#999]">Original Amount: <span className="text-white font-bold">{amountDisplay}</span></span>
+              
+              {invoice.crypto_received_amount ? (
+                 <span className="text-gray-400 text-sm mt-1 text-center text-[#999]">We have received: <span className="text-white font-bold">{invoice.crypto_received_amount} {invoice.currency}</span></span>
+              ) : (
+                 <span className="text-gray-400 text-sm mt-1 text-center text-[#999]">We have received: <span className="text-white font-bold">{(Number(invoice.invoice_sum || invoice.amount) - (Number(invoice.pending_amount)/1.05)).toFixed(8)} {invoice.currency}</span></span>
+              )}
+
+              <span className="text-gray-400 text-sm mt-1 text-[#8b91a7]">To complete your payment, please send</span>
+              <div 
+                className="font-bold text-2xl text-red-500 animate-pulse cursor-pointer hover:text-red-400 transition-colors flex items-center justify-center gap-2 group w-full px-2 mt-1" 
+                onClick={() => copyToClipboard(invoice.pending_amount, 'amount')}
+              >
+                <span className="text-center">{invoice.pending_amount} {invoice.currency}</span>
+                {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
+              </div>
+              <span className="text-gray-400 text-sm mb-2 text-[#8b91a7]">to the address below:</span>
+            </>
+          ) : (
+            <>
+              <span className="text-gray-400 text-sm">Amount to Pay</span>
+              <div 
+                className="font-bold text-2xl text-white cursor-pointer hover:text-gray-300 transition-colors flex items-center justify-center gap-2 group w-full px-2" 
+                onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
+              >
+                <span className="text-center">{amountDisplay}</span>
+                {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
+              </div>
+            </>
+          )}
         </div>
 
         {/* QR Code Section */}
-        <div className="bg-white p-3 rounded-xl mb-2 relative inline-block">
+        <div className="bg-white p-3 rounded-xl mb-2 relative inline-block mx-auto">
           <img
             src={invoice.qr_code}
             alt="Payment QR Code"
@@ -262,10 +298,6 @@ export default function CustomInvoicePage() {
           </p>
           {copiedAddress ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
         </div>
-
-        <p className="text-[#888] text-sm text-center px-2 mt-3 leading-relaxed">
-          Please wait 5 - 10 seconds after payment for confirmation. Only used to receive tokens on the {invoice.currency.charAt(0).toUpperCase() + invoice.currency.slice(1)} network.
-        </p>
 
       </div>
 

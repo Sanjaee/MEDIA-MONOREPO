@@ -13,6 +13,8 @@ type Transaction struct {
 	Status        *string   `gorm:"type:varchar;default:'pending'"`
 	CryptoOrderID *string   `gorm:"type:varchar" json:"-"`
 	CryptoTxnID   *string   `gorm:"type:varchar" json:"-"`
+	CryptoPendingAmount *string `gorm:"type:varchar" json:"crypto_pending_amount,omitempty"`
+	CryptoReceivedAmount *string `gorm:"type:varchar" json:"crypto_received_amount,omitempty"`
 	PaymentMethod *string   `gorm:"type:varchar;default:'crypto'"`
 	InvoiceURL    *string   `gorm:"type:varchar" json:"-"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp"`

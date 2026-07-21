@@ -98,6 +98,7 @@ type CryptoCallbackData struct {
 	SourceCurrency string `json:"source_currency,omitempty"`
 	PsysCid        string `json:"psys_cid,omitempty"`
 	ExpireUtc      string `json:"expire_utc,omitempty"`
+	PendingAmount  string `json:"pending_amount,omitempty"`
 	VerifyHash     string `json:"verify_hash"`
 }
 

@@ -777,6 +777,9 @@ func (s *service) HandleCryptoWebhook(payload []byte) error {
 	if cb.Currency != "" {
 		updates["payment_method"] = cb.Currency
 	}
+	if cb.PendingAmount != "" {
+		updates["crypto_pending_amount"] = cb.PendingAmount
+	}
 	if err := s.repo.UpdateTransaction(tx.ID, updates); err != nil {
 		return err
 	}
@@ -854,6 +857,8 @@ type plisioOperationsResponse struct {
 			Params struct {
 				OrderNumber string `json:"order_number"`
 			} `json:"params"`
+			Sum           string `json:"sum"`
+			PendingAmount string `json:"pending_sum"`
 		} `json:"operations"`
 	} `json:"data"`
 }
@@ -920,11 +925,36 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 	}
 
 	var currentStatus string = "new"
+	var foundPendingAmount *string = nil
+	var foundReceivedAmount *string = nil
+	var isInvoiceFound bool = false
+
 	for _, op := range opResp.Data.Operations {
 		log.Printf("[VerifyCryptoOrder] Operation type: %s, status: %s, orderNumber: %s", op.Type, op.Status, op.Params.OrderNumber)
 		if op.Type == "invoice" {
 			if op.Params.OrderNumber == "" || op.Params.OrderNumber == *tx.CryptoOrderID {
+				isInvoiceFound = true
 				opStatus := strings.ToLower(op.Status)
+				
+				val := strings.TrimSpace(op.PendingAmount)
+				if val == "" || val == "0" || strings.TrimRight(val, "0.") == "" {
+					val = ""
+				} else {
+					// Calculate received amount (sum - pending)
+					sumFloat, _ := strconv.ParseFloat(op.Sum, 64)
+					pendingFloat, err := strconv.ParseFloat(val, 64)
+					if err == nil {
+						received := sumFloat - pendingFloat
+						if received > 0 {
+							recvStr := fmt.Sprintf("%.8f", received)
+							foundReceivedAmount = &recvStr
+						}
+						// Add 5% fee to pending amount
+						val = fmt.Sprintf("%.8f", pendingFloat*1.05)
+					}
+				}
+				foundPendingAmount = &val
+
 				if opStatus == "completed" || opStatus == "mismatch" {
 					currentStatus = "completed"
 					break
@@ -934,6 +964,24 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 					currentStatus = "new"
 				}
 			}
+		}
+	}
+
+	if isInvoiceFound && foundPendingAmount != nil {
+		if *foundPendingAmount == "" {
+			tx.CryptoPendingAmount = nil
+			tx.CryptoReceivedAmount = nil
+			go s.repo.UpdateTransaction(tx.ID, map[string]interface{}{
+				"crypto_pending_amount": nil,
+				"crypto_received_amount": nil,
+			})
+		} else {
+			tx.CryptoPendingAmount = foundPendingAmount
+			tx.CryptoReceivedAmount = foundReceivedAmount
+			go s.repo.UpdateTransaction(tx.ID, map[string]interface{}{
+				"crypto_pending_amount": *foundPendingAmount,
+				"crypto_received_amount": foundReceivedAmount,
+			})
 		}
 	}
 
