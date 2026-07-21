@@ -169,16 +169,21 @@ func (r *repository) GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
 }
 
 type AdminTransactionRow struct {
-	ID            string    `json:"id"`
-	UserID        string    `json:"userId"`
-	Username      string    `json:"username"`
-	Email         string    `json:"email"`
-	ItemType      string    `json:"itemType"`
-	ItemID        string    `json:"itemId"`
-	Amount        int       `json:"amount"`
-	Status        string    `json:"status"`
-	PaymentMethod string    `json:"paymentMethod"`
-	CreatedAt     time.Time `json:"createdAt"`
+	ID                   string    `json:"id"`
+	UserID               string    `json:"userId"`
+	Username             string    `json:"username"`
+	Email                string    `json:"email"`
+	ItemType             string    `json:"itemType"`
+	ItemID               string    `json:"itemId"`
+	Amount               int       `json:"amount"`
+	Status               string    `json:"status"`
+	PaymentMethod        string    `json:"paymentMethod"`
+	CreatedAt            time.Time `json:"createdAt"`
+	CryptoOrderID        *string   `json:"cryptoOrderId,omitempty"`
+	CryptoTxnID          *string   `json:"cryptoTxnId,omitempty"`
+	CryptoPendingAmount  *string   `json:"cryptoPendingAmount,omitempty"`
+	CryptoReceivedAmount *string   `json:"cryptoReceivedAmount,omitempty"`
+	InvoiceURL           *string   `json:"invoiceUrl,omitempty"`
 }
 
 func (r *repository) GetAllTransactionsAdmin() ([]AdminTransactionRow, error) {
@@ -194,7 +199,12 @@ func (r *repository) GetAllTransactionsAdmin() ([]AdminTransactionRow, error) {
 			t.amount, 
 			COALESCE(NULLIF(t.status, ''), 'new') as status, 
 			COALESCE(t.payment_method, '') as payment_method, 
-			t.created_at
+			t.created_at,
+			t.crypto_order_id,
+			t.crypto_txn_id,
+			t.crypto_pending_amount,
+			t.crypto_received_amount,
+			t.invoice_url
 		FROM transactions t
 		LEFT JOIN users u ON t.user_id = u.id
 		WHERE t.item_type IN ('ad', 'product', 'role')

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -23,6 +24,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function PaymentClient({ initialData }: { initialData: any[] }) {
   const { data: transactions } = useQuery({
@@ -122,6 +130,101 @@ export function PaymentClient({ initialData }: { initialData: any[] }) {
             }).format(new Date(info.getValue() as string))}
           </div>
         ),
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Action</div>,
+        cell: ({ row }) => {
+          const t = row.original;
+          return (
+            <div className="text-right" onClick={(e) => e.stopPropagation()}>
+              <Dialog>
+                <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                  View Details
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Transaction Details</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">ID:</span>
+                      <span className="col-span-3 text-sm break-all">{t.id}</span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">User:</span>
+                      <span className="col-span-3 text-sm">
+                        {t.username} <br />
+                        <span className="text-muted-foreground text-xs">{t.email}</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">Type:</span>
+                      <span className="col-span-3 text-sm capitalize">{t.itemType}</span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">Amount:</span>
+                      <span className="col-span-3 text-sm font-bold text-green-500">
+                        {formatCurrency(t.amount as number)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">Method:</span>
+                      <span className="col-span-3 text-sm uppercase">{t.paymentMethod}</span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">Status:</span>
+                      <span className="col-span-3">{getStatusBadge(t.status)}</span>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <span className="font-semibold text-sm text-muted-foreground">Date:</span>
+                      <span className="col-span-3 text-sm">
+                        {new Intl.DateTimeFormat("id-ID", {
+                          dateStyle: "full",
+                          timeStyle: "long",
+                        }).format(new Date(t.createdAt))}
+                      </span>
+                    </div>
+                    {t.cryptoOrderId && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="font-semibold text-sm text-muted-foreground">Crypto Order ID:</span>
+                        <span className="col-span-3 text-sm break-all">{t.cryptoOrderId}</span>
+                      </div>
+                    )}
+                    {t.cryptoTxnId && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="font-semibold text-sm text-muted-foreground">Crypto Txn ID:</span>
+                        <span className="col-span-3 text-sm break-all">{t.cryptoTxnId}</span>
+                      </div>
+                    )}
+                    {t.cryptoPendingAmount && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="font-semibold text-sm text-muted-foreground">Pending Crypto:</span>
+                        <span className="col-span-3 text-sm break-all">{t.cryptoPendingAmount}</span>
+                      </div>
+                    )}
+                    {t.cryptoReceivedAmount && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="font-semibold text-sm text-muted-foreground">Received Crypto:</span>
+                        <span className="col-span-3 text-sm break-all">{t.cryptoReceivedAmount}</span>
+                      </div>
+                    )}
+                    {t.invoiceUrl && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="font-semibold text-sm text-muted-foreground">Invoice URL:</span>
+                        <span className="col-span-3 text-sm break-all">
+                          <a href={t.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                            View Invoice
+                          </a>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          );
+        },
       },
     ],
     []

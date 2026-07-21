@@ -149,6 +149,27 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 						Type:    "NOTIFICATION",
 						Payload: notificationPayload,
 					}
+					
+					var actorImage *string
+					if p.Author != nil {
+						actorImage = p.Author.Image
+					}
+					var actorUsername string
+					if p.Author != nil && p.Author.Username != nil {
+						actorUsername = *p.Author.Username
+					}
+					
+					broadcastPayload, _ := json.Marshal(map[string]interface{}{
+						"actorUsername": actorUsername,
+						"actorImage":    actorImage,
+						"postId":        p.ID,
+						"authorId":      p.AuthorID,
+					})
+					hub.SendToUser <- &websocket.MessagePayload{
+						UserID:  "*",
+						Type:    "NEW_POST",
+						Payload: broadcastPayload,
+					}
 				}
 			}
 		}

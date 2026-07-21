@@ -69,6 +69,30 @@ func (s *service) CreatePost(ctx context.Context, post *Post, tempFiles []string
 			Type:    "NOTIFICATION",
 			Payload: notificationPayload,
 		}
+
+		postWithAuthor, err := s.repository.FindByID("", post.ID)
+		if err == nil {
+			var actorImage *string
+			if postWithAuthor.Author != nil {
+				actorImage = postWithAuthor.Author.Image
+			}
+			var actorUsername string
+			if postWithAuthor.Author != nil && postWithAuthor.Author.Username != nil {
+				actorUsername = *postWithAuthor.Author.Username
+			}
+			
+			broadcastPayload, _ := json.Marshal(map[string]interface{}{
+				"actorUsername": actorUsername,
+				"actorImage":    actorImage,
+				"postId":        post.ID,
+				"authorId":      post.AuthorID,
+			})
+			s.hub.SendToUser <- &websocket.MessagePayload{
+				UserID:  "*",
+				Type:    "NEW_POST",
+				Payload: broadcastPayload,
+			}
+		}
 	}
 
 	return nil

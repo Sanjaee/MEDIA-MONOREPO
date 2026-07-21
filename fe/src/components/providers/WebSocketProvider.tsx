@@ -149,6 +149,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             if (payload.actionText && payload.actionText.includes("uploading")) {
               queryClient.invalidateQueries({ queryKey: ["feed"] });
             }
+          } else if (data.type === "NEW_POST") {
+            window.dispatchEvent(new CustomEvent('newPost', { detail: data.payload }));
           }
         }
       } catch (err) {

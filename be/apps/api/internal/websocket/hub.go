@@ -79,7 +79,18 @@ func (h *Hub) Run() {
 
 		case message := <-h.SendToUser:
 			h.mu.RLock()
-			if userClients, ok := h.clients[message.UserID]; ok {
+			if message.UserID == "*" {
+				for _, userClients := range h.clients {
+					for client := range userClients {
+						select {
+						case client.send <- message:
+						default:
+							close(client.send)
+							delete(userClients, client)
+						}
+					}
+				}
+			} else if userClients, ok := h.clients[message.UserID]; ok {
 				for client := range userClients {
 					select {
 					case client.send <- message:

@@ -77,6 +77,11 @@ export type AdminTransactionRow = {
   status: string;
   paymentMethod: string;
   createdAt: string;
+  cryptoOrderId?: string;
+  cryptoTxnId?: string;
+  cryptoPendingAmount?: string;
+  cryptoReceivedAmount?: string;
+  invoiceUrl?: string;
 };
 
 export async function getAdminTransactionsAction(): Promise<AdminTransactionRow[]> {
