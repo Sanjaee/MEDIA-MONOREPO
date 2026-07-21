@@ -239,30 +239,45 @@ export default function CustomInvoicePage() {
             <>
               <span className="text-gray-400 text-sm mt-2 text-center text-[#999]">Original Amount: <span className="text-white font-bold">{amountDisplay}</span></span>
               
-              {invoice.crypto_received_amount ? (
-                 <span className="text-gray-400 text-sm mt-1 text-center text-[#999]">We have received: <span className="text-white font-bold">{invoice.crypto_received_amount} {invoice.currency}</span></span>
-              ) : (
-                 <span className="text-gray-400 text-sm mt-1 text-center text-[#999]">We have received: <span className="text-white font-bold">{(Number(invoice.invoice_sum || invoice.amount) - (Number(invoice.pending_amount)/1.05)).toFixed(8)} {invoice.currency}</span></span>
-              )}
+              <span className="text-gray-400 text-sm mt-1 text-center text-[#999]">
+                We have received: <span className="text-white font-bold">{invoice.crypto_received_amount || invoice.pending_amount} {invoice.currency}</span>
+              </span>
 
               <span className="text-gray-400 text-sm mt-1 text-[#8b91a7]">To complete your payment, please send</span>
               <div 
                 className="font-bold text-2xl text-red-500 animate-pulse cursor-pointer hover:text-red-400 transition-colors flex items-center justify-center gap-2 group w-full px-2 mt-1" 
-                onClick={() => copyToClipboard(invoice.pending_amount, 'amount')}
+                onClick={() => {
+                  const baseRemaining = invoice.crypto_received_amount
+                    ? (Number(invoice.invoice_sum || invoice.amount) - Number(invoice.crypto_received_amount))
+                    : (Number(invoice.invoice_sum || invoice.amount) - (Number(invoice.pending_amount)/1.05));
+                  const remaining = (baseRemaining * 1.15).toFixed(8);
+                  copyToClipboard(remaining, 'amount');
+                }}
               >
-                <span className="text-center">{invoice.pending_amount} {invoice.currency}</span>
+                <span className="text-center">
+                  {(() => {
+                    const baseRemaining = invoice.crypto_received_amount
+                      ? (Number(invoice.invoice_sum || invoice.amount) - Number(invoice.crypto_received_amount))
+                      : (Number(invoice.invoice_sum || invoice.amount) - (Number(invoice.pending_amount)/1.05));
+                    return (baseRemaining * 1.15).toFixed(8);
+                  })()} {invoice.currency}
+                </span>
                 {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
               </div>
               <span className="text-gray-400 text-sm mb-2 text-[#8b91a7]">to the address below:</span>
+              <div className="flex items-center justify-center gap-2 mt-3 mb-1">
+                <div className="w-4 h-4 rounded-full border-2 border-t-transparent border-gray-400 animate-spin" />
+                <span className="text-sm text-gray-400 animate-pulse tracking-wide">Waiting for remaining payment...</span>
+              </div>
             </>
           ) : (
             <>
               <span className="text-gray-400 text-sm">Amount to Pay</span>
               <div 
                 className="font-bold text-2xl text-white cursor-pointer hover:text-gray-300 transition-colors flex items-center justify-center gap-2 group w-full px-2" 
-                onClick={() => copyToClipboard(invoice.invoice_sum || invoice.amount, 'amount')}
+                onClick={() => copyToClipboard((Number(invoice.invoice_sum || invoice.amount) * 1.15).toFixed(8), 'amount')}
               >
-                <span className="text-center">{amountDisplay}</span>
+                <span className="text-center">{(Number(invoice.invoice_sum || invoice.amount) * 1.15).toFixed(8)} {invoice.currency}</span>
                 {copiedAmount ? <Check className="w-5 h-5 text-green-400 flex-shrink-0" /> : <Copy className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
               </div>
             </>

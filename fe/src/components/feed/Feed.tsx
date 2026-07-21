@@ -96,7 +96,7 @@ export function Feed({ initialData }: { initialData: { posts: PostWithRelations[
   return (
     <div className="flex flex-col pb-20 w-full relative">
       {newPosts.length > 0 && (
-        <div className="sticky top-4 z-50 flex justify-center w-full mb-4 pointer-events-none">
+        <div className="absolute top-4 left-0 right-0 z-50 flex justify-center w-full pointer-events-none">
           <button
             onClick={handleShowNewPosts}
             className="pointer-events-auto flex items-center gap-2 bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white px-4 py-1.5 rounded-full font-bold shadow-md transition-colors text-sm"

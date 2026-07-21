@@ -937,7 +937,7 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 				opStatus := strings.ToLower(op.Status)
 				
 				val := strings.TrimSpace(op.PendingAmount)
-				if val == "" || val == "0" || strings.TrimRight(val, "0.") == "" {
+				if val == "" {
 					val = ""
 				} else {
 					// Calculate received amount (sum - pending)
@@ -949,8 +949,12 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 							recvStr := fmt.Sprintf("%.8f", received)
 							foundReceivedAmount = &recvStr
 						}
-						// Add 5% fee to pending amount
-						val = fmt.Sprintf("%.8f", pendingFloat*1.05)
+						if pendingFloat == 0 {
+							val = "0"
+						} else {
+							// Add 5% fee to pending amount
+							val = fmt.Sprintf("%.8f", pendingFloat*1.05)
+						}
 					}
 				}
 				foundPendingAmount = &val
