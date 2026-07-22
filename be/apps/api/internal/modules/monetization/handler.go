@@ -135,18 +135,34 @@ func (h *Handler) CreateAdPayment(c *gin.Context) {
 		return
 	}
 
-	tx, invoiceURL, err := h.service.CreatePaymentForAdCrypto(userID, req)
+	tx, invData, err := h.service.CreatePaymentForAdCrypto(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	respData := map[string]interface{}{
+		"order_id":  tx.ID,
+		"hostedUrl": invData.InvoiceURL,
+	}
+
+	// Include white-label data if present
+	if invData.QrCode != "" && invData.WalletHash != "" {
+		respData["whiteLabel"] = map[string]interface{}{
+			"wallet_hash":            invData.WalletHash,
+			"qr_code":                invData.QrCode,
+			"amount":                 invData.Amount,
+			"currency":               invData.Currency,
+			"status":                 invData.Status,
+			"expected_confirmations": invData.ExpectedConfirmations,
+			"pending_amount":         invData.PendingAmount,
+			"invoice_sum":            invData.InvoiceSum,
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"data": map[string]interface{}{
-			"order_id":  tx.ID,
-			"hostedUrl": invoiceURL,
-		},
+		"data":    respData,
 	})
 }
 

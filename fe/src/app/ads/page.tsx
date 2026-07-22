@@ -114,8 +114,16 @@ export default function AdsPage() {
       // 2. Create ad payment (all slots are $1 for demo)
       const paymentRes = await createAdPaymentAction(pendingAd.id, 1, currency);
       
-      if (paymentRes.success && paymentRes.invoiceUrl) {
-        window.location.href = paymentRes.invoiceUrl;
+      if (paymentRes.success) {
+        if (paymentRes.whiteLabel) {
+          sessionStorage.setItem(`invoice_${paymentRes.orderId}`, JSON.stringify(paymentRes.whiteLabel));
+          router.push(`/payment/invoice/${paymentRes.orderId}`);
+        } else if (paymentRes.invoiceUrl) {
+          window.location.href = paymentRes.invoiceUrl;
+        } else {
+          toast.error("Failed to get invoice URL");
+          setIsBuying(false);
+        }
       } else {
         toast.error("Failed to create invoice");
         setIsBuying(false);

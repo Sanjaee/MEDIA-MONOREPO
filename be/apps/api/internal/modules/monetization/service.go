@@ -32,7 +32,7 @@ const plisioBaseURL = "https://api.plisio.net/api/v1"
 
 type Service interface {
 	CreatePaymentForRoleCrypto(userID string, req CreateRolePaymentRequest) (*Transaction, *CryptoInvoiceData, error)
-	CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, string, error)
+	CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, *CryptoInvoiceData, error)
 	CreatePaymentForProductCrypto(userID string, req CreateProductPaymentRequest) (*Transaction, *CryptoInvoiceData, error)
 	HandleCryptoWebhook(payload []byte) error
 	GetCryptoCurrencies() ([]CryptoCurrency, error)
@@ -626,13 +626,13 @@ func (s *service) CreatePaymentForProductCrypto(userID string, req CreateProduct
 	return tx, &inv, nil
 }
 
-func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, string, error) {
+func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentRequest) (*Transaction, *CryptoInvoiceData, error) {
 	if s.plisioAPIKey == "" {
-		return nil, "", fmt.Errorf("PLISIO_API_KEY is not configured")
+		return nil, nil, fmt.Errorf("PLISIO_API_KEY is not configured")
 	}
 
 	if req.Amount < 1.0 {
-		return nil, "", fmt.Errorf("amount too small")
+		return nil, nil, fmt.Errorf("amount too small")
 	}
 
 	orderID := fmt.Sprintf("PAY_AD_%s", uuid.New().String())
@@ -658,31 +658,31 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 
 	httpReq, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	httpReq.Header.Set("Accept", "application/json")
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	var plisioResp CryptoInvoiceResponse
 	if err := json.Unmarshal(body, &plisioResp); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	if plisioResp.Status != "success" {
-		return nil, "", fmt.Errorf("Payment service is currently under maintenance. Please try again later.")
+		return nil, nil, fmt.Errorf("Payment service is currently under maintenance. Please try again later.")
 	}
 
 	var inv CryptoInvoiceData
 	if err := json.Unmarshal(plisioResp.Data, &inv); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	status := "pending"
@@ -707,7 +707,7 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 	}
 
 	if err := s.repo.CreateTransaction(tx); err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	// Link transaction to AdSlot
@@ -717,7 +717,7 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 		log.Printf("Warning: Failed to link transaction to AdSlot %s: %v", req.AdID, err)
 	}
 
-	return tx, inv.InvoiceURL, nil
+	return tx, &inv, nil
 }
 
 func (s *service) HandleCryptoWebhook(payload []byte) error {

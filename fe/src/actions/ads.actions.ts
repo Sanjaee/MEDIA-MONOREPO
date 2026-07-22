@@ -120,6 +120,7 @@ export async function createAdPaymentAction(adId: string, amountUSD: number, cur
   return {
     success: true,
     invoiceUrl: data.data.hostedUrl,
-    orderId: data.data.order_id
+    orderId: data.data.order_id,
+    whiteLabel: data.data.whiteLabel
   };
 }
