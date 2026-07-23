@@ -1,0 +1,1 @@
+-- This file is intentionally left empty. User and database creation is handled automatically by the postgres docker image using POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_DB environment variables.
