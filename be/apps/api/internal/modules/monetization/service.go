@@ -685,7 +685,7 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 		return nil, nil, err
 	}
 
-	status := "pending"
+	status := "new"
 	method := "crypto"
 	if inv.Currency != "" {
 		method = inv.Currency
@@ -859,6 +859,7 @@ type plisioOperationsResponse struct {
 			} `json:"params"`
 			Sum           string `json:"sum"`
 			PendingAmount string `json:"pending_sum"`
+			ActualSum     string `json:"actual_sum"`
 		} `json:"operations"`
 	} `json:"data"`
 }
@@ -936,25 +937,28 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 				isInvoiceFound = true
 				opStatus := strings.ToLower(op.Status)
 				
-				val := strings.TrimSpace(op.PendingAmount)
-				if val == "" {
+				val := strings.TrimSpace(op.PendingAmount) // This is pending_sum (unconfirmed received)
+				actual := strings.TrimSpace(op.ActualSum) // This is actual_sum (confirmed received)
+				if val == "" && actual == "" {
 					val = ""
 				} else {
-					// Calculate received amount (sum - pending)
 					sumFloat, _ := strconv.ParseFloat(op.Sum, 64)
-					pendingFloat, err := strconv.ParseFloat(val, 64)
-					if err == nil {
-						received := sumFloat - pendingFloat
-						if received > 0 {
-							recvStr := fmt.Sprintf("%.8f", received)
-							foundReceivedAmount = &recvStr
-						}
-						if pendingFloat == 0 {
-							val = "0"
-						} else {
-							// Add 5% fee to pending amount
-							val = fmt.Sprintf("%.8f", pendingFloat*1.05)
-						}
+					pendingFloat, _ := strconv.ParseFloat(val, 64)
+					actualFloat, _ := strconv.ParseFloat(actual, 64)
+					
+					totalReceived := pendingFloat + actualFloat
+					
+					if totalReceived > 0 {
+						recvStr := fmt.Sprintf("%.8f", totalReceived)
+						foundReceivedAmount = &recvStr
+					}
+					
+					remaining := sumFloat - totalReceived
+					if remaining <= 0 {
+						val = "0"
+					} else {
+						// Add 5% fee to remaining amount
+						val = fmt.Sprintf("%.8f", remaining*1.05)
 					}
 				}
 				foundPendingAmount = &val
