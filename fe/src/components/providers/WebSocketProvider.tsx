@@ -18,6 +18,7 @@ export type Notification = {
   postId?: string;
   timestamp: Date;
   isRead?: boolean;
+  type?: string;
 };
 
 type WebSocketContextType = {
@@ -61,13 +62,14 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               role: (!n.actor?.username || n.actor?.username === "System") ? "admin" : (n.actor?.role || "user"),
           },
           actionText: n.type === "LIKE" ? "liked your post" 
-                    : n.type === "SYSTEM" ? (n.message?.includes("Digital Product") ? "Payment Successful" : "Role Upgraded")
+                    : n.type === "SYSTEM" ? ((n.message?.includes("Digital Product") || n.message?.includes("Ad Slot")) ? "Payment Successful" : "Role Upgraded")
                     : n.type === "PRODUCT_SALE" ? "purchased your product"
                     : "commented",
           message: n.type === "LIKE" ? "" : (n.message || ""),
           postId: n.entityId,
           timestamp: new Date(n.createdAt),
           isRead: n.isRead,
+          type: n.type,
         }));
         
         setNotifications(mapped);
@@ -113,6 +115,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               postId: payload.postId,
               timestamp: new Date(),
               isRead: false,
+              type: payload.type,
             };
 
             setNotifications((prev) => [newNotif, ...prev]);
@@ -151,6 +154,8 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             }
           } else if (data.type === "NEW_POST") {
             window.dispatchEvent(new CustomEvent('newPost', { detail: data.payload }));
+          } else if (data.type === "TOP_LARP_UPDATE") {
+            window.dispatchEvent(new CustomEvent('topLarpUpdate'));
           }
         }
       } catch (err) {

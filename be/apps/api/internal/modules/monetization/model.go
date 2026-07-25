@@ -50,16 +50,30 @@ type ProductPurchase struct {
 }
 
 type Withdrawal struct {
-	ID          string    `gorm:"primaryKey;type:varchar" json:"id"`
-	UserID      string    `gorm:"type:varchar;not null" json:"userId"`
-	AmountCents int       `gorm:"type:integer;not null" json:"amountCents"`
-	Currency    string    `gorm:"type:varchar;not null" json:"currency"`
-	ToAddress   string    `gorm:"type:varchar;not null" json:"toAddress"`
-	Status      string    `gorm:"type:varchar;default:'pending'" json:"status"`
-	CryptoTxnID *string   `gorm:"type:varchar" json:"cryptoTxnId"`
-	TxURL       *string   `gorm:"type:varchar" json:"txUrl"`
-	CreatedAt   time.Time `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+	ID            string     `gorm:"primaryKey;type:varchar" json:"id"`
+	UserID        string     `gorm:"type:varchar;not null;index" json:"userId"`
+	AmountCents   int        `gorm:"type:integer;not null" json:"amountCents"`
+	Currency      string     `gorm:"type:varchar;not null" json:"currency"`
+	ToAddress     string     `gorm:"type:varchar;not null" json:"toAddress"`
+	Status        string     `gorm:"type:varchar;default:'pending';index" json:"status"`
+	CryptoTxnID   *string    `gorm:"type:varchar;uniqueIndex" json:"cryptoTxnId"`
+	TxURL         *string    `gorm:"type:varchar" json:"txUrl"`
+	ErrorMessage  *string    `gorm:"type:text" json:"errorMessage"`
+	Signature     string     `gorm:"type:varchar" json:"signature"`
+	FeeAmount     *int       `gorm:"type:integer" json:"feeAmount"`
+	RetryCount    int        `gorm:"type:integer;default:0" json:"retryCount"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp;index" json:"createdAt"`
+	UpdatedAt     time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
+	CompletedAt   *time.Time `gorm:"type:timestamp" json:"completedAt"`
+}
+
+type WithdrawalAuditLog struct {
+	ID            string    `gorm:"primaryKey;type:varchar"`
+	UserID        string    `gorm:"type:varchar;not null;index"`
+	WithdrawalID  string    `gorm:"type:varchar;not null"`
+	Event         string    `gorm:"type:varchar"`
+	Details       *string   `gorm:"type:text"`
+	Timestamp     time.Time `gorm:"autoCreateTime"`
 }
 
 type ProductPurchaseAudit struct {

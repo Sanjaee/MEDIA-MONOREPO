@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"media-api/internal/cache"
+	"media-api/internal/websocket"
 	"media-api/internal/modules/notification"
 	"media-api/internal/storage"
 	"os"
@@ -54,6 +56,7 @@ type Service interface {
 	GenerateProductToken(userID, postID string) (string, error)
 	GetSignedURLFromToken(token string) (string, error)
 	VerifyProductPurchase(userID, postID string) (bool, error)
+	GetRecentRoleBuyers(limit int) ([]RecentRoleBuyerRow, error)
 }
 
 type service struct {
@@ -720,6 +723,15 @@ func (s *service) CreatePaymentForAdCrypto(userID string, req CreateAdPaymentReq
 	return tx, &inv, nil
 }
 
+func broadcastTopLarpUpdate() {
+	msg := &websocket.MessagePayload{
+		UserID:  "*",
+		Type:    "TOP_LARP_UPDATE",
+		Payload: []byte(`{}`),
+	}
+	_ = websocket.PublishToRedis(msg)
+}
+
 func (s *service) HandleCryptoWebhook(payload []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(payload, &data); err != nil {
@@ -965,6 +977,7 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 
 				if opStatus == "completed" || opStatus == "mismatch" {
 					currentStatus = "completed"
+					broadcastTopLarpUpdate()
 					break
 				} else if opStatus == "pending" {
 					currentStatus = "pending"
@@ -1003,9 +1016,12 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 	// Update status and role
 	status := "success"
 	tx.Status = &status
-	s.repo.UpdateTransaction(tx.ID, map[string]interface{}{
-		"status": "success",
-	})
+	if err := s.repo.UpdateTransaction(tx.ID, map[string]interface{}{
+		"status":        "completed",
+		"completed_at":  time.Now(),
+	}); err == nil {
+		broadcastTopLarpUpdate()
+	}
 	
 	if tx.ItemType == "ad" {
 		var ad AdSlot
@@ -1295,31 +1311,59 @@ func isValidCryptoAddress(address, currency string) bool {
 }
 
 func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*Withdrawal, error) {
-	if !isValidCryptoAddress(req.ToAddress, req.Currency) {
-		return nil, fmt.Errorf("invalid crypto address format")
+	ctx := context.Background()
+
+	// 1. Check withdrawal rate limit (max 1 per hour)
+	rateLimitKey := fmt.Sprintf("withdraw_limit:%s", userID)
+	if cache.RDB != nil {
+		lastWithdrawTime, err := cache.RDB.Get(ctx, rateLimitKey).Result()
+		if err == nil && lastWithdrawTime != "" {
+			return nil, fmt.Errorf("withdrawal available in %s (max 1 per hour)", lastWithdrawTime)
+		}
 	}
 
+	// 2. Verify crypto address format (specific per currency)
+	if !isValidCryptoAddressForCurrency(req.ToAddress, req.Currency) {
+		return nil, fmt.Errorf("invalid %s address format", req.Currency)
+	}
+
+	// 3. Check minimum withdrawal ($5.00 USD for crypto in cents)
+	minWithdrawal := 500 // $5.00
+	if req.AmountCents < minWithdrawal {
+		return nil, fmt.Errorf("minimum withdrawal is $5.00 (received: $%.2f)", float64(req.AmountCents)/100.0)
+	}
+
+	// 4. Maximum withdrawal (anti-whale limit, e.g., $50k per tx)
+	maxWithdrawal := 5000000 // $50k in cents
+	if req.AmountCents > maxWithdrawal {
+		return nil, fmt.Errorf("maximum withdrawal is $50,000 per transaction")
+	}
+
+	// 5. Get user balance & verify sufficient funds
 	stats, err := s.GetProductSalesStats(userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to retrieve balance: %w", err)
 	}
 
-	minWithdrawal := 100 // $1.00
-	if stats.AvailableBalance < 100 && stats.AvailableBalance > 0 {
-		minWithdrawal = stats.AvailableBalance
+	if stats.AvailableBalance < req.AmountCents {
+		return nil, fmt.Errorf("insufficient balance (have: $%.2f, requested: $%.2f)",
+			float64(stats.AvailableBalance)/100.0,
+			float64(req.AmountCents)/100.0)
 	}
 
-	if req.AmountCents < minWithdrawal {
-		return nil, fmt.Errorf("minimum withdrawal amount is $%.2f", float64(minWithdrawal)/100.0)
+	// 6. Check withdrawal history for duplicate attempts (last 10 seconds)
+	dupeKey := fmt.Sprintf("withdraw_dupe:%s:%s:%d", userID, req.ToAddress, req.AmountCents)
+	if cache.RDB != nil {
+		_, err = cache.RDB.Get(ctx, dupeKey).Result()
+		if err == nil {
+			return nil, fmt.Errorf("duplicate withdrawal request detected")
+		}
 	}
 
-	if req.AmountCents > stats.AvailableBalance {
-		return nil, fmt.Errorf("insufficient balance")
-	}
-
+	// 7. Verify crypto currency is supported
 	currencies, err := s.GetCryptoCurrencies()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch currency list: %w", err)
 	}
 
 	var targetCurrency *CryptoCurrency
@@ -1334,16 +1378,30 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 		return nil, fmt.Errorf("unsupported currency: %s", req.Currency)
 	}
 
+	// 8. Verify exchange rate is reasonable (prevent fraud)
 	priceUsdFloat, err := strconv.ParseFloat(targetCurrency.PriceUsd, 64)
 	if err != nil || priceUsdFloat <= 0 {
 		return nil, fmt.Errorf("invalid exchange rate for %s", req.Currency)
 	}
 
+	// 9. Verify user is not flagged for suspicious activity
+	isFlagged, err := s.repo.IsUserFlaggedForReview(userID)
+	if err == nil && isFlagged {
+		return nil, fmt.Errorf("account under review - withdrawals temporarily disabled")
+	}
+
+	// 10. Check if user has too many pending withdrawals (max 3)
+	pendingWithdrawals, err := s.repo.GetPendingWithdrawalsCount(userID)
+	if err == nil && pendingWithdrawals >= 3 {
+		return nil, fmt.Errorf("maximum 3 pending withdrawals allowed (current: %d)", pendingWithdrawals)
+	}
+
+	// Proceed with withdrawal
 	usdAmountFloat := float64(req.AmountCents) / 100.0
 	cryptoAmount := usdAmountFloat / priceUsdFloat
 	cryptoAmountStr := strconv.FormatFloat(cryptoAmount, 'f', 8, 64)
 
-	// Start transaction
+	// Start database transaction
 	txDB := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -1351,20 +1409,24 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 		}
 	}()
 
-	w := &Withdrawal{
+	withdrawal := &Withdrawal{
 		ID:          uuid.New().String(),
 		UserID:      userID,
 		AmountCents: req.AmountCents,
 		Currency:    req.Currency,
 		ToAddress:   req.ToAddress,
 		Status:      "pending",
+		CreatedAt:   time.Now(),
 	}
 
-	if err := txDB.Create(w).Error; err != nil {
+	if err := txDB.Create(withdrawal).Error; err != nil {
 		txDB.Rollback()
-		return nil, err
+		return nil, fmt.Errorf("failed to create withdrawal record: %w", err)
 	}
 
+	signature := generateWithdrawalSignature(withdrawal, s.plisioAPIKey)
+	
+	// API call to Plisio
 	u := fmt.Sprintf("%s/operations/withdraw?currency=%s&type=cash_out&to=%s&amount=%s&feePlan=normal&api_key=%s",
 		plisioBaseURL,
 		url.QueryEscape(targetCurrency.Currency),
@@ -1382,9 +1444,8 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(reqAPI)
 	if err != nil {
-		// Update status to error inside transaction
-		txDB.Model(w).Update("status", "error")
-		txDB.Commit() // Commit the error state so it's recorded
+		txDB.Model(withdrawal).Update("status", "error")
+		txDB.Commit()
 		return nil, fmt.Errorf("failed to call plisio api: %w", err)
 	}
 	defer resp.Body.Close()
@@ -1410,22 +1471,75 @@ func (s *service) WithdrawProductEarnings(userID string, req WithdrawRequest) (*
 	}
 
 	if plisioResp.Status == "error" || plisioResp.Status == "" {
-		txDB.Model(w).Update("status", "error")
-		txDB.Commit() // Commit the error state
+		txDB.Model(withdrawal).Update("status", "error")
+		txDB.Commit()
 		return nil, fmt.Errorf("plisio withdrawal error: %s", plisioResp.Data.Message)
 	}
 
-	txDB.Model(w).Updates(map[string]interface{}{
+	txDB.Model(withdrawal).Updates(map[string]interface{}{
 		"status":        "completed",
 		"crypto_txn_id": plisioResp.Data.ID,
 		"tx_url":        plisioResp.Data.TxURL,
+		"signature":     signature,
 	})
 	
 	if err := txDB.Commit().Error; err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to commit withdrawal: %w", err)
 	}
 
-	return w, nil
+	// Set rate limit in Redis (1 hour expiry)
+	if cache.RDB != nil {
+		cache.RDB.Set(ctx, rateLimitKey, time.Now().Add(1*time.Hour).String(), 1*time.Hour)
+		cache.RDB.Set(ctx, dupeKey, "1", 10*time.Second)
+	}
+	
+	s.logWithdrawalEvent(userID, withdrawal, "initiated")
+
+	return withdrawal, nil
+}
+
+func isValidCryptoAddressForCurrency(address, currency string) bool {
+	address = strings.TrimSpace(address)
+	currency = strings.ToLower(strings.TrimSpace(currency))
+	
+	if address == "" {
+		return false
+	}
+
+	switch currency {
+	case "btc", "bitcoin":
+		return regexp.MustCompile(`^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$`).MatchString(address)
+	case "eth", "ethereum", "usdt", "usdc":
+		return regexp.MustCompile(`^0x[a-fA-F0-9]{40}$`).MatchString(address)
+	case "ltc", "litecoin":
+		return regexp.MustCompile(`^[LM][a-zA-km-zA-Z0-9]{33}$`).MatchString(address)
+	case "xrp", "ripple":
+		return regexp.MustCompile(`^r[a-zA-Z0-9]{33}$`).MatchString(address)
+	case "doge", "dogecoin":
+		return regexp.MustCompile(`^D[a-zA-Z0-9]{33}$`).MatchString(address)
+	default:
+		return regexp.MustCompile(`^[a-zA-Z0-9]{25,100}$`).MatchString(address)
+	}
+}
+
+func generateWithdrawalSignature(w *Withdrawal, apiKey string) string {
+	data := fmt.Sprintf("%s|%s|%s|%d", w.ID, w.ToAddress, w.Currency, w.AmountCents)
+	mac := hmac.New(sha256.New, []byte(apiKey))
+	mac.Write([]byte(data))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (s *service) logWithdrawalEvent(userID string, withdrawal *Withdrawal, event string) {
+	auditLog := &WithdrawalAuditLog{
+		ID:           uuid.New().String(),
+		UserID:       userID,
+		WithdrawalID: withdrawal.ID,
+		Event:        event,
+		Timestamp:    time.Now(),
+	}
+	s.db.Create(auditLog)
+	fmt.Printf("[WITHDRAWAL_AUDIT] User=%s | Event=%s | Amount=$%.2f | Status=%s\n",
+		userID, event, float64(withdrawal.AmountCents)/100.0, withdrawal.Status)
 }
 
 func (s *service) GetWithdrawalHistory(userID string) ([]Withdrawal, error) {
@@ -1440,4 +1554,11 @@ func (s *service) GetAllTransactionsAdmin(callerUserID string) ([]AdminTransacti
 		return nil, fmt.Errorf("forbidden: owner access required")
 	}
 	return s.repo.GetAllTransactionsAdmin()
+}
+
+func (s *service) GetRecentRoleBuyers(limit int) ([]RecentRoleBuyerRow, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	return s.repo.GetRecentRoleBuyers(limit)
 }

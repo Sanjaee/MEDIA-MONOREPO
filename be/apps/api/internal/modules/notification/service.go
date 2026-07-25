@@ -274,17 +274,18 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 	isRead := false
 	
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
-	actorUsername := "System"
-	var actorImage interface{} = nil
+	buyerUsername := "Someone"
 
 	if actorDetails != nil {
 		if username, ok := actorDetails["username"].(string); ok && username != "" {
-			actorUsername = username
+			buyerUsername = username
 		}
-		actorImage = actorDetails["image"]
 	}
 	
-	message := actorUsername + " purchased your product!"
+	actorUsername := "System"
+	var actorImage interface{} = nil
+	message := buyerUsername + " purchased your product!"
+	
 	n := &Notification{
 		ID:       uuid.New().String(),
 		UserID:   userID,
@@ -300,8 +301,6 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 		return err
 	}
 
-
-
 	payload := map[string]interface{}{
 		"id":            n.ID,
 		"type":          nType,
@@ -309,7 +308,7 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 		"entityId":      postID,
 		"postId":        postID, // Add postId for the frontend redirect
 		"message":       message,
-		"actionText":    "purchased your product!", // Add actionText
+		"actionText":    "Product Sale", // Add actionText
 		"actorUsername": actorUsername, // Add actorUsername
 		"actorImage":    actorImage,
 		"isRead":        false,

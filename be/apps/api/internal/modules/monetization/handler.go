@@ -21,10 +21,12 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 	payment := router.Group("/payment")
 	{
 		// Apply rate limit ONLY to payment creation endpoints to prevent spam, not webhooks or currencies
-		creationLimiter := middleware.RateLimitMiddleware(cache.RDB, 30, time.Hour)
+		creationLimiter := middleware.RateLimitMiddleware(cache.RDB, 5, time.Hour)
+		withdrawLimiter := middleware.RateLimitMiddleware(cache.RDB, 1, time.Hour)
 		
 		payment.GET("/crypto/currencies", h.GetCurrencies)
 		payment.POST("/crypto/role", creationLimiter, h.CreateRolePayment)
+
 		payment.POST("/crypto/ad", creationLimiter, h.CreateAdPayment)
 		payment.POST("/crypto/product", creationLimiter, h.CreateProductPayment)
 		
@@ -32,8 +34,9 @@ func RegisterRoutes(router *gin.RouterGroup, h *Handler) {
 		payment.POST("/crypto/webhook", h.Webhook)
 		payment.POST("/crypto/verify-key", h.VerifyKey)
 		payment.GET("/crypto/verify", h.VerifyOrder)
+		payment.GET("/roles/recent", h.GetRecentRoleBuyers)
 		payment.GET("/products/sales", h.GetProductSalesStats)
-		payment.POST("/products/withdraw", h.WithdrawProductEarnings)
+		payment.POST("/products/withdraw", withdrawLimiter, h.WithdrawProductEarnings)
 		payment.GET("/products/withdraw/history", h.GetWithdrawalHistory)
 		payment.GET("/admin/transactions", h.GetAllTransactionsAdmin)
 	}
@@ -566,4 +569,13 @@ func (h *Handler) GetAllTransactionsAdmin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, transactions)
+}
+
+func (h *Handler) GetRecentRoleBuyers(c *gin.Context) {
+	buyers, err := h.service.GetRecentRoleBuyers(10)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch recent role buyers"})
+		return
+	}
+	c.JSON(http.StatusOK, buyers)
 }

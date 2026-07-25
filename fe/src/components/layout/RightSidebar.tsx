@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getActiveAds } from "@/actions/ads.actions";
+import { getRecentRoleBuyers } from "@/actions/roles.actions";
+import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 import { useSession } from "next-auth/react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade } from "swiper/modules";
@@ -12,9 +14,23 @@ import "swiper/css/effect-fade";
 export function RightSidebar() {
   const { data: session } = useSession();
   const [ads, setAds] = useState<any[]>([]);
+  const [buyers, setBuyers] = useState<any[]>([]);
 
   useEffect(() => {
-    getActiveAds().then(setAds).catch(console.error);
+    const fetchAds = () => getActiveAds().then(setAds).catch(console.error);
+    const fetchBuyers = () => getRecentRoleBuyers().then(setBuyers).catch(console.error);
+    
+    // Initial fetch
+    fetchAds();
+    fetchBuyers();
+    
+    // Listen for WebSocket updates
+    const handleUpdate = () => fetchBuyers();
+    window.addEventListener('topLarpUpdate', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('topLarpUpdate', handleUpdate);
+    };
   }, []);
 
   return (
@@ -66,18 +82,36 @@ export function RightSidebar() {
       </div>
 
       <div className="bg-muted/50 rounded-xl p-4">
-        <h2 className="font-bold text-xl mb-4">What's happening</h2>
+        <h2 className="font-bold text-lg mb-4">Top Larp</h2>
         <div className="flex flex-col gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Trending in Indonesia</p>
-            <p className="font-bold">React Next.js</p>
-            <p className="text-xs text-muted-foreground">10.5K posts</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Trending in Indonesia</p>
-            <p className="font-bold">Tailwind CSS</p>
-            <p className="text-xs text-muted-foreground">5,234 posts</p>
-          </div>
+          {buyers.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No recent role upgrades yet.</p>
+          ) : (
+            buyers.map((buyer, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <img 
+                  src={buyer.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${buyer.username}`} 
+                  alt={buyer.username} 
+                  className="w-10 h-10 rounded-full bg-background border object-cover" 
+                />
+                <div className="flex flex-col flex-1 min-w-0">
+                  <div className="flex items-center justify-between w-full">
+                    <UserNameWithRole 
+                      displayName={buyer.name || buyer.username}
+                      role={buyer.role}
+                      className="text-sm"
+                    />
+                    {buyer.totalSpend > 0 && (
+                      <span className="text-xs font-bold text-green-500 whitespace-nowrap ml-2">
+                        +${(buyer.totalSpend / 100).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">@{buyer.username}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </aside>

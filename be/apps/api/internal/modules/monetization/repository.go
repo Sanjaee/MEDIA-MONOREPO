@@ -25,6 +25,18 @@ type Repository interface {
 	GetTotalWithdrawnByUserID(userID string) (int, error)
 	GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
 	GetAllTransactionsAdmin() ([]AdminTransactionRow, error)
+	GetPendingWithdrawalsCount(userID string) (int64, error)
+	IsUserFlaggedForReview(userID string) (bool, error)
+	GetRecentRoleBuyers(limit int) ([]RecentRoleBuyerRow, error)
+}
+
+type RecentRoleBuyerRow struct {
+	Username   string    `json:"username"`
+	Name       string    `json:"name"`
+	Image      string    `json:"image"`
+	Role       string    `json:"role"`
+	BoughtAt   time.Time `json:"boughtAt"`
+	TotalSpend int       `json:"totalSpend"`
 }
 
 type ProductPurchaseRow struct {
@@ -168,6 +180,17 @@ func (r *repository) GetWithdrawalsByUserID(userID string) ([]Withdrawal, error)
 	return withdrawals, err
 }
 
+func (r *repository) GetPendingWithdrawalsCount(userID string) (int64, error) {
+	var count int64
+	err := r.db.Model(&Withdrawal{}).Where("user_id = ? AND status = ?", userID, "pending").Count(&count).Error
+	return count, err
+}
+
+func (r *repository) IsUserFlaggedForReview(userID string) (bool, error) {
+	// Dummy implementation. Update based on actual User schema if available.
+	return false, nil
+}
+
 type AdminTransactionRow struct {
 	ID                   string    `json:"id"`
 	UserID               string    `json:"userId"`
@@ -211,5 +234,26 @@ func (r *repository) GetAllTransactionsAdmin() ([]AdminTransactionRow, error) {
 		ORDER BY t.created_at DESC
 	`
 	err := r.db.Raw(query).Scan(&rows).Error
+	return rows, err
+}
+
+func (r *repository) GetRecentRoleBuyers(limit int) ([]RecentRoleBuyerRow, error) {
+	var rows []RecentRoleBuyerRow
+	query := `
+		SELECT 
+			u.username,
+			u.name,
+			u.image,
+			u.role,
+			MAX(COALESCE(t.completed_at, t.created_at)) as bought_at,
+			(SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = u.id AND status IN ('completed', 'success')) as total_spend
+		FROM transactions t
+		JOIN users u ON t.user_id = u.id
+		WHERE t.status IN ('completed', 'success') AND u.role NOT IN ('admin', 'owner')
+		GROUP BY u.id
+		ORDER BY bought_at DESC
+		LIMIT ?
+	`
+	err := r.db.Raw(query, limit).Scan(&rows).Error
 	return rows, err
 }

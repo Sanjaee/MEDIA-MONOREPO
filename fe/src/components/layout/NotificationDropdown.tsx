@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, User, X, Trash2 } from "lucide-react";
+import { Bell, User, X, Trash2, Code } from "lucide-react";
 import { useWebSocket } from "@/components/providers/WebSocketProvider";
 import {
   DropdownMenu,
@@ -120,7 +120,11 @@ export function NotificationDropdown() {
                     >
                       <div className="flex w-full gap-3 relative group">
                         <div className="flex-shrink-0">
-                          {notif.actor?.image ? (
+                          {notif.type === 'PRODUCT_SALE' ? (
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                              <Code className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                          ) : notif.actor?.image ? (
                             <img src={notif.actor.image} alt={notif.actor.username || "User"} className="w-10 h-10 rounded-full object-cover bg-muted" />
                           ) : (
                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
@@ -132,11 +136,11 @@ export function NotificationDropdown() {
                           <div className="flex justify-between items-start w-full">
                             <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1">
                               <UserNameWithRole
-                                displayName={notif.actor?.username || "Someone"}
-                                role={notif.actor?.role}
+                                displayName={notif.type === 'PRODUCT_SALE' ? 'System' : (notif.actor?.username || "Someone")}
+                                role={notif.type === 'PRODUCT_SALE' ? 'admin' : notif.actor?.role}
                                 className="inline-flex"
                               />
-                              <span className="text-muted-foreground">{notif.actionText}</span>
+                              <span className="text-muted-foreground">{notif.type === 'PRODUCT_SALE' ? 'Product Sale' : notif.actionText}</span>
                             </span>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
                               {formatShortTime(notif.timestamp)}
