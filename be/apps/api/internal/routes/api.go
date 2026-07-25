@@ -43,7 +43,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	authHandler := auth.NewHandler(authService)
 
 	interactionRepo := interaction.NewRepository(db)
-	interactionService := interaction.NewService(interactionRepo, notificationService)
+	interactionService := interaction.NewService(interactionRepo, notificationService, hub)
 	interactionController := interaction.NewController(interactionService)
 
 	chatRepo := chat.NewRepository(db)

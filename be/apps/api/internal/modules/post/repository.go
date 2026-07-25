@@ -86,23 +86,20 @@ func (r *repository) GetLatestFeed(userID string, cursor string, limit int) ([]P
 func (r *repository) GetTrendingFeed(userID string, cursorScore float64, cursorID string, limit int) ([]Post, error) {
 	var posts []Post
 	
-	// Simplified formula for Trending: likeCount*1 + commentCount*3 + repostCount*4 + bookmarkCount*5
-	scoreExpr := "(like_count * 1 + comment_count * 3 + repost_count * 4 + bookmark_count * 5 + view_count * 0.05)"
-	
 	query := r.db.Preload("Author").Preload("Media")
 		query = applyVisibility(query, userID).
 		Where("(like_count > 0 OR comment_count > 0 OR repost_count > 0 OR bookmark_count > 0)").
-		Order("score DESC, id DESC").
+		Order("trending_score DESC, id DESC").
 		Limit(limit + 1)
 
 	if userID != "" {
-		query = query.Select("posts.*, " + scoreExpr + " as score, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
+		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
 	} else {
-		query = query.Select("posts.*, " + scoreExpr + " as score")
+		query = query.Select("posts.*")
 	}
 
 	if cursorID != "" {
-		query = query.Where("("+scoreExpr+" < ?) OR ("+scoreExpr+" = ? AND id < ?)", cursorScore, cursorScore, cursorID)
+		query = query.Where("(trending_score < ?) OR (trending_score = ? AND id < ?)", cursorScore, cursorScore, cursorID)
 	}
 
 	err := query.Find(&posts).Error

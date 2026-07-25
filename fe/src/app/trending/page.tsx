@@ -1,4 +1,4 @@
-import { getTrendingFeedAction } from "@/actions/feed.actions";
+import { getTrendingFeedAction } from "@/actions/trending.actions";
 import { TrendingFeed } from "@/components/feed/TrendingFeed";
 import { TrendingUp } from "lucide-react";
 

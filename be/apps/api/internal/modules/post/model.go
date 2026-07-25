@@ -20,6 +20,7 @@ type Post struct {
 	RepostCount    *int       `gorm:"type:integer;default:0" json:"repostCount"`
 	BookmarkCount  *int       `gorm:"type:integer;default:0" json:"bookmarkCount"`
 	ViewCount      *int       `gorm:"type:integer;default:0" json:"viewCount"`
+	TrendingScore  *float64   `gorm:"type:numeric;default:0;index" json:"trendingScore"`
 	HasLiked       bool       `gorm:"->;type:boolean" json:"hasLiked"`
 	HasBookmarked  bool       `gorm:"->;type:boolean" json:"hasBookmarked"`
 	IsProduct      *bool      `gorm:"type:boolean;default:false" json:"isProduct"`

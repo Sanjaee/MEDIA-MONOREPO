@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTrendingFeedAction } from "@/actions/feed.actions";
+import { getTrendingFeedAction } from "@/actions/trending.actions";
 
 export async function GET(request: Request) {
   try {

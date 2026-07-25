@@ -59,6 +59,12 @@ func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
 		if err != nil {
 			log.Printf("Failed to enqueue task post:update_comment_count: %v", err)
 		}
+		
+		task2 := asynq.NewTask("post:update_trending_score", payload)
+		_, err2 := queue.Client.Enqueue(task2)
+		if err2 != nil {
+			log.Printf("Failed to enqueue task post:update_trending_score: %v", err2)
+		}
 	}
 	return nil
 }
@@ -86,6 +92,9 @@ func (s *service) DeleteComment(ctx context.Context, id string, userID string) e
 		payload, _ := json.Marshal(map[string]string{"post_id": comment.PostID})
 		task := asynq.NewTask("post:update_comment_count", payload)
 		_, _ = queue.Client.Enqueue(task)
+		
+		task2 := asynq.NewTask("post:update_trending_score", payload)
+		_, _ = queue.Client.Enqueue(task2)
 	}
 
 	return nil

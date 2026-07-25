@@ -98,6 +98,22 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     return () => clearTimeout(timeout);
   }, [inView, session?.user, post.id, post.author.id]);
 
+  useEffect(() => {
+    const handleLikeUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { postId, userId, isLiked: payloadIsLiked, likeCount: payloadLikeCount } = customEvent.detail;
+      if (postId === post.id) {
+        setLikeCount(payloadLikeCount);
+        if (session?.user?.id === userId) {
+          setIsLiked(payloadIsLiked);
+        }
+      }
+    };
+    window.addEventListener('likeUpdate', handleLikeUpdate);
+    return () => window.removeEventListener('likeUpdate', handleLikeUpdate);
+  }, [post.id, session?.user?.id]);
+
+
   const [isOnCooldown, setIsOnCooldown] = useState(false);
 
   const handleLike = () => {

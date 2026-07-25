@@ -44,6 +44,42 @@ func (c *Controller) GetLatestFeed(ctx *gin.Context) {
 	})
 }
 
+// GetTrendingFeed handles GET /api/feed/trending
+func (c *Controller) GetTrendingFeed(ctx *gin.Context) {
+	cursorScoreStr := ctx.Query("cursorScore")
+	cursorId := ctx.Query("cursorId")
+	limitStr := ctx.DefaultQuery("limit", "10")
+	limit, _ := strconv.Atoi(limitStr)
+
+	var cursorScore float64
+	if cursorScoreStr != "" {
+		cursorScore, _ = strconv.ParseFloat(cursorScoreStr, 64)
+	}
+
+	userID := ctx.GetString("userID")
+
+	posts, err := c.service.GetTrendingFeed(ctx.Request.Context(), userID, cursorScore, cursorId, limit)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var nextCursor map[string]interface{}
+	if len(posts) > limit {
+		nextPost := posts[limit]
+		nextCursor = map[string]interface{}{
+			"score": nextPost.TrendingScore,
+			"id":    nextPost.ID,
+		}
+		posts = posts[:limit]
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"posts":      posts,
+		"nextCursor": nextCursor,
+	})
+}
+
 // GetSearchFeed handles GET /api/feed/search
 func (c *Controller) GetSearchFeed(ctx *gin.Context) {
 	keyword := ctx.Query("q")
@@ -212,7 +248,7 @@ func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 	feedRoutes := router.Group("/feed")
 	{
 		feedRoutes.GET("/latest", controller.GetLatestFeed)
-		feedRoutes.GET("/trending", controller.GetLatestFeed) // TODO: Implement GetTrendingFeed logic in controller
+		feedRoutes.GET("/trending", controller.GetTrendingFeed)
 		feedRoutes.GET("/hot", controller.GetLatestFeed)      // TODO: Implement GetHotFeed logic in controller
 		feedRoutes.GET("/media", controller.GetLatestFeed)    // TODO: Implement GetMediaFeed logic in controller
 		feedRoutes.GET("/search", controller.GetSearchFeed)

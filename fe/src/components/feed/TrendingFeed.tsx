@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { PostCard } from "./PostCard";
 import { PostSkeleton } from "./PostSkeleton";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { getTrendingFeedAction } from "@/actions/feed.actions";
+import { getTrendingFeedAction } from "@/actions/trending.actions";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 type TrendingCursor = { score: number; id: string } | null;

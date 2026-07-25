@@ -21,6 +21,7 @@ import (
 
 	"media-api/internal/storage"
 	"media-api/internal/websocket"
+	"media-api/internal/pkg/trending"
 )
 
 func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) func(context.Context, *asynq.Task) error {
@@ -201,3 +202,48 @@ func HandleUpdateCommentCount(db *gorm.DB) func(context.Context, *asynq.Task) er
 		return nil
 	}
 }
+
+func HandleUpdateTrendingScore(db *gorm.DB) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, t *asynq.Task) error {
+		var payload struct {
+			PostID string `json:"post_id"`
+		}
+		if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+			return fmt.Errorf("json.Unmarshal failed: %v", err)
+		}
+
+		var post Post
+		if err := db.First(&post, "id = ?", payload.PostID).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil
+			}
+			return fmt.Errorf("failed to get post: %v", err)
+		}
+
+		// Prepare data for algorithm
+		tp := trending.Post{
+			Likes:     getSafeInt(post.LikeCount),
+			Comments:  getSafeInt(post.CommentCount),
+			Reposts:   getSafeInt(post.RepostCount),
+			Bookmarks: getSafeInt(post.BookmarkCount),
+			Views:     getSafeInt(post.ViewCount),
+			CreatedAt: post.CreatedAt,
+		}
+
+		score := trending.CalculateScore(tp)
+
+		if err := db.Model(&Post{}).Where("id = ?", payload.PostID).Update("trending_score", score).Error; err != nil {
+			return fmt.Errorf("failed to update trending_score: %v", err)
+		}
+
+		return nil
+	}
+}
+
+func getSafeInt(val *int) int {
+	if val == nil {
+		return 0
+	}
+	return *val
+}
+
