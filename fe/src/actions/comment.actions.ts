@@ -58,3 +58,9 @@ export async function deleteCommentAction(commentId: string) {
     method: 'DELETE',
   });
 }
+
+export async function toggleCommentLikeAction(commentId: string) {
+  return fetchFromGo(`/comments/${commentId}/like`, {
+    method: 'POST',
+  });
+}

@@ -78,7 +78,7 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
       ) : (
         <div 
           ref={parentRef} 
-          className="flex-1 overflow-y-auto w-full relative max-h-[600px] border-t mt-4 pt-2"
+          className="flex-1 overflow-y-auto w-full relative max-h-[600px]"
         >
           <div
             style={{

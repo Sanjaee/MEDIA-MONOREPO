@@ -52,6 +52,7 @@ func Migrate(db *gorm.DB) {
 		&comment.Comment{},
 		&interaction.Like{},
 		&interaction.Bookmark{},
+		&interaction.CommentLike{},
 
 		// Notification
 		&notification.Notification{},

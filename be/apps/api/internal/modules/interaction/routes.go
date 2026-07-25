@@ -10,4 +10,5 @@ import (
 func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 	router.POST("/posts/:id/like", middleware.RateLimitMiddleware(cache.RDB, 5, 3*time.Second), controller.ToggleLike)
 	router.POST("/posts/:id/bookmark", controller.ToggleBookmark)
+	router.POST("/comments/:id/like", middleware.RateLimitMiddleware(cache.RDB, 5, 3*time.Second), controller.ToggleCommentLike)
 }

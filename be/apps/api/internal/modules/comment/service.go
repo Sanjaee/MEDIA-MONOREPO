@@ -16,8 +16,8 @@ import (
 type Service interface {
 	CreateComment(ctx context.Context, comment *Comment) error
 	DeleteComment(ctx context.Context, id string, userID string) error
-	GetCommentsByPostID(ctx context.Context, postID string, cursor string, limit int) ([]Comment, error)
-	GetRepliesByCommentID(ctx context.Context, parentID string, cursor string, limit int) ([]Comment, error)
+	GetCommentsByPostID(ctx context.Context, userID string, postID string, cursor string, limit int) ([]Comment, error)
+	GetRepliesByCommentID(ctx context.Context, userID string, parentID string, cursor string, limit int) ([]Comment, error)
 }
 
 type service struct {
@@ -133,10 +133,10 @@ func (s *service) DeleteComment(ctx context.Context, id string, userID string) e
 	return nil
 }
 
-func (s *service) GetCommentsByPostID(ctx context.Context, postID string, cursor string, limit int) ([]Comment, error) {
-	return s.repository.GetCommentsByPostID(postID, cursor, limit)
+func (s *service) GetCommentsByPostID(ctx context.Context, userID string, postID string, cursor string, limit int) ([]Comment, error) {
+	return s.repository.GetCommentsByPostID(userID, postID, cursor, limit)
 }
 
-func (s *service) GetRepliesByCommentID(ctx context.Context, parentID string, cursor string, limit int) ([]Comment, error) {
-	return s.repository.GetRepliesByCommentID(parentID, cursor, limit)
+func (s *service) GetRepliesByCommentID(ctx context.Context, userID string, parentID string, cursor string, limit int) ([]Comment, error) {
+	return s.repository.GetRepliesByCommentID(userID, parentID, cursor, limit)
 }

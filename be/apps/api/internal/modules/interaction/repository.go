@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	ToggleLike(ctx context.Context, userID, postID string) (bool, int, string, error)
 	ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error)
+	ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, error)
 }
 
 type repository struct {
@@ -125,4 +126,57 @@ func (r *repository) ToggleBookmark(ctx context.Context, userID, postID string) 
 	})
 
 	return isBookmarked, newCount, err
+}
+
+func (r *repository) ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, error) {
+	var isLiked bool
+	var newCount int
+	var commentOwnerID string
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var like CommentLike
+		err := tx.Where("user_id = ? AND comment_id = ?", userID, commentID).First(&like).Error
+
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Like does not exist, so we CREATE it
+			newLike := CommentLike{
+				ID:        uuid.New().String(),
+				UserID:    userID,
+				CommentID: commentID,
+			}
+			isLiked = true
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&newLike).Error; err != nil {
+				return err
+			}
+		} else {
+			// Like exists, so we DELETE it
+			isLiked = false
+			if err := tx.Where("user_id = ? AND comment_id = ?", userID, commentID).Delete(&CommentLike{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Recalculate Comment like count
+		if err := tx.Exec("UPDATE comments SET like_count = (SELECT COUNT(*) FROM comment_likes WHERE comment_id = comments.id) WHERE id = ?", commentID).Error; err != nil {
+			return err
+		}
+
+		// Fetch latest count and author
+		var comment struct {
+			LikeCount int
+			AuthorID  string
+		}
+		if err := tx.Table("comments").Select("like_count, author_id").Where("id = ?", commentID).Scan(&comment).Error; err == nil {
+			newCount = comment.LikeCount
+			commentOwnerID = comment.AuthorID
+		}
+
+		return nil
+	})
+
+	return isLiked, newCount, commentOwnerID, err
 }

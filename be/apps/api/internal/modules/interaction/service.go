@@ -15,6 +15,7 @@ import (
 type Service interface {
 	ToggleLike(ctx context.Context, userID, postID string) (bool, int, error)
 	ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error)
+	ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, error)
 }
 
 type service struct {
@@ -89,4 +90,30 @@ func (s *service) ToggleBookmark(ctx context.Context, userID, postID string) (bo
 		}
 	}
 	return bookmarked, count, err
+}
+
+func (s *service) ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, error) {
+	liked, count, _, err := s.repo.ToggleCommentLike(ctx, userID, commentID)
+	if err != nil {
+		return liked, count, err
+	}
+
+	// Maybe add notification for comment like later
+	// if liked && s.notifSv != nil && commentOwnerID != "" { ... }
+
+	if s.hub != nil {
+		broadcastPayload, _ := json.Marshal(map[string]interface{}{
+			"commentId": commentID,
+			"userId":    userID,
+			"isLiked":   liked,
+			"likeCount": count,
+		})
+		s.hub.SendToUser <- &websocket.MessagePayload{
+			UserID:  "*",
+			Type:    "COMMENT_LIKE_UPDATE",
+			Payload: broadcastPayload,
+		}
+	}
+
+	return liked, count, nil
 }

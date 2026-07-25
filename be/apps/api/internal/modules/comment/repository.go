@@ -10,8 +10,8 @@ type Repository interface {
 	Create(comment *Comment) error
 	Delete(id string, userID string) error
 	FindByID(id string) (*Comment, error)
-	GetCommentsByPostID(postID string, cursor string, limit int) ([]Comment, error)
-	GetRepliesByCommentID(parentID string, cursor string, limit int) ([]Comment, error)
+	GetCommentsByPostID(userID string, postID string, cursor string, limit int) ([]Comment, error)
+	GetRepliesByCommentID(userID string, parentID string, cursor string, limit int) ([]Comment, error)
 	IncrementReplyCount(parentID string, step int) error
 	GetPostAuthorID(postID string) (string, error)
 	GetCommentAuthorID(commentID string) (string, error)
@@ -50,13 +50,19 @@ func (r *repository) FindByID(id string) (*Comment, error) {
 	return &comment, nil
 }
 
-func (r *repository) GetCommentsByPostID(postID string, cursor string, limit int) ([]Comment, error) {
+func (r *repository) GetCommentsByPostID(userID string, postID string, cursor string, limit int) ([]Comment, error) {
 	var comments []Comment
 
 	query := r.db.Preload("Author").
 		Where("post_id = ? AND parent_comment_id IS NULL", postID).
 		Order("created_at DESC, id DESC").
 		Limit(limit + 1)
+
+	if userID != "" {
+		query = query.Select("comments.*, EXISTS(SELECT 1 FROM comment_likes WHERE comment_likes.comment_id = comments.id AND comment_likes.user_id = ?) as has_liked", userID)
+	} else {
+		query = query.Select("comments.*")
+	}
 
 	if cursor != "" {
 		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
@@ -69,13 +75,19 @@ func (r *repository) GetCommentsByPostID(postID string, cursor string, limit int
 	return comments, err
 }
 
-func (r *repository) GetRepliesByCommentID(parentID string, cursor string, limit int) ([]Comment, error) {
+func (r *repository) GetRepliesByCommentID(userID string, parentID string, cursor string, limit int) ([]Comment, error) {
 	var comments []Comment
 
 	query := r.db.Preload("Author").
 		Where("parent_comment_id = ?", parentID).
 		Order("created_at DESC, id DESC").
 		Limit(limit + 1)
+
+	if userID != "" {
+		query = query.Select("comments.*, EXISTS(SELECT 1 FROM comment_likes WHERE comment_likes.comment_id = comments.id AND comment_likes.user_id = ?) as has_liked", userID)
+	} else {
+		query = query.Select("comments.*")
+	}
 
 	if cursor != "" {
 		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)

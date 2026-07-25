@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Heart, Trash2 } from "lucide-react";
+import { MessageCircle, ThumbsUp, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatShortTime } from "@/utils/timeUtils";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSession } from "next-auth/react";
 import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { deleteCommentAction, getRepliesAction } from "@/actions/comment.actions";
+import { deleteCommentAction, getRepliesAction, toggleCommentLikeAction } from "@/actions/comment.actions";
 import { CommentForm } from "./CommentForm";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 
@@ -38,6 +38,68 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
   const [isReplying, setIsReplying] = useState(false);
   const [showReplies, setShowReplies] = useState(autoExpand);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [isLiked, setIsLiked] = useState(comment.hasLiked ?? false);
+  const [likeCount, setLikeCount] = useState(comment.likeCount ?? 0);
+
+  const [isLiking, setIsLiking] = useState(false);
+  const clickCountRef = useRef(0);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLike = () => {
+    if (!session?.user) {
+      toast.error("Please login to like comments");
+      return;
+    }
+
+    const prevLiked = isLiked;
+    const prevCount = Math.max(0, likeCount);
+
+    setIsLiked(!prevLiked);
+    setLikeCount(Math.max(0, prevCount + (prevLiked ? -1 : 1)));
+
+    clickCountRef.current += 1;
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+
+    debounceTimeoutRef.current = setTimeout(async () => {
+      const clicks = clickCountRef.current;
+      clickCountRef.current = 0;
+
+      if (clicks % 2 !== 0) {
+        setIsLiking(true);
+        try {
+          const result = await toggleCommentLikeAction(comment.id);
+          if (result && typeof result.likeCount === 'number') {
+            setIsLiked(result.isLiked || false);
+            setLikeCount(Math.max(0, result.likeCount));
+            
+            // Sync React Query Cache
+            const queryKey = comment.parentCommentId ? ["replies", comment.parentCommentId] : ["comments", postId];
+            queryClient.setQueryData(queryKey, (oldData: any) => {
+              if (!oldData || !oldData.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                  ...page,
+                  comments: page.comments ? page.comments.map((c: any) => 
+                    c.id === comment.id ? { ...c, likeCount: result.likeCount, hasLiked: result.isLiked } : c
+                  ) : page.comments,
+                  replies: page.replies ? page.replies.map((r: any) => 
+                    r.id === comment.id ? { ...r, likeCount: result.likeCount, hasLiked: result.isLiked } : r
+                  ) : page.replies,
+                }))
+              };
+            });
+          }
+        } catch (e) {
+          setIsLiked(prevLiked);
+          setLikeCount(prevCount);
+          toast.error("Failed to like comment");
+        } finally {
+          setIsLiking(false);
+        }
+      }
+    }, 500);
+  };
 
   const isOwner = session?.user?.id === comment.author.id;
 
@@ -142,18 +204,21 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
             {comment.content}
           </div>
 
-          <div className="flex items-center gap-6 mt-1 text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1 text-muted-foreground">
             <button
               onClick={() => setIsReplying(!isReplying)}
-              className="flex items-center gap-1 text-[12px] hover:text-blue-500 transition-colors group/btn"
+              className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded-md transition-colors text-[12px] font-medium"
             >
-              <div className="p-1 rounded-full group-hover/btn:bg-blue-500/10"><MessageCircle size={iconSize} /></div>
-              <span>{comment.replyCount > 0 ? comment.replyCount : "Reply"}</span>
+              <MessageCircle size={iconSize} />
+              <span>{Math.max(0, comment.replyCount) || 0}</span>
             </button>
 
-            <button className="flex items-center gap-1.5 text-[12px] hover:text-pink-500 transition-colors group/btn">
-              <div className="p-1 rounded-full group-hover/btn:bg-pink-500/10"><Heart size={iconSize} /></div>
-              <span>{comment.likeCount > 0 ? comment.likeCount : ""}</span>
+            <button 
+              onClick={handleLike}
+              className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded-md transition-colors text-[12px] font-medium"
+            >
+              <ThumbsUp size={iconSize} className={isLiked ? "fill-red-500 text-red-500" : ""} />
+              <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || 0}</span>
             </button>
           </div>
 

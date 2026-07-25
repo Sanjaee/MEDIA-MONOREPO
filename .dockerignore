@@ -13,3 +13,8 @@ README.md
 implementation_plan.md
 task.md
 walkthrough.md
+graphify-out
+be/bin
+be/tmp
+*.exe
+.vercel

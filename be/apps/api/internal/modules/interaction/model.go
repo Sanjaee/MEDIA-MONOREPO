@@ -17,3 +17,10 @@ type Bookmark struct {
 	PostID    string    `gorm:"type:varchar;not null;uniqueIndex:idx_user_post_bookmark"`
 	CreatedAt time.Time `gorm:"autoCreateTime;type:timestamp"`
 }
+
+type CommentLike struct {
+	ID        string    `gorm:"primaryKey;type:varchar"`
+	UserID    string    `gorm:"type:varchar;not null;uniqueIndex:idx_user_comment_like"`
+	CommentID string    `gorm:"type:varchar;not null;uniqueIndex:idx_user_comment_like"`
+	CreatedAt time.Time `gorm:"autoCreateTime;type:timestamp"`
+}

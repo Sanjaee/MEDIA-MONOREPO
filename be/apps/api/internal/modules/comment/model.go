@@ -20,4 +20,5 @@ type Comment struct {
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`
 	DeletedBy       *string        `gorm:"type:varchar" json:"deletedBy,omitempty"`
 	DeleteReason    *string        `gorm:"type:varchar" json:"deleteReason,omitempty"`
+	HasLiked        bool           `gorm:"->;type:boolean" json:"hasLiked"`
 }

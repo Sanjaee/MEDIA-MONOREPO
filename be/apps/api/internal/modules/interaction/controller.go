@@ -57,3 +57,25 @@ func (c *Controller) ToggleBookmark(ctx *gin.Context) {
 		"bookmarkCount": newCount,
 	})
 }
+
+// ToggleCommentLike handles POST /api/comments/:id/like
+func (c *Controller) ToggleCommentLike(ctx *gin.Context) {
+	commentID := ctx.Param("id")
+	userID := ctx.GetString("userID")
+
+	if userID == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	isLiked, likeCount, err := c.service.ToggleCommentLike(ctx.Request.Context(), userID, commentID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"isLiked":   isLiked,
+		"likeCount": likeCount,
+	})
+}

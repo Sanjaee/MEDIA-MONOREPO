@@ -86,11 +86,12 @@ func (c *Controller) DeleteComment(ctx *gin.Context) {
 
 func (c *Controller) GetComments(ctx *gin.Context) {
 	postID := ctx.Param("postId")
+	userID := ctx.GetString("userID")
 	cursor := ctx.Query("cursor")
 	limitStr := ctx.DefaultQuery("limit", "20")
 	limit, _ := strconv.Atoi(limitStr)
 
-	comments, err := c.service.GetCommentsByPostID(ctx.Request.Context(), postID, cursor, limit)
+	comments, err := c.service.GetCommentsByPostID(ctx.Request.Context(), userID, postID, cursor, limit)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -111,11 +112,12 @@ func (c *Controller) GetComments(ctx *gin.Context) {
 
 func (c *Controller) GetReplies(ctx *gin.Context) {
 	parentID := ctx.Param("id")
+	userID := ctx.GetString("userID")
 	cursor := ctx.Query("cursor")
 	limitStr := ctx.DefaultQuery("limit", "20")
 	limit, _ := strconv.Atoi(limitStr)
 
-	comments, err := c.service.GetRepliesByCommentID(ctx.Request.Context(), parentID, cursor, limit)
+	comments, err := c.service.GetRepliesByCommentID(ctx.Request.Context(), userID, parentID, cursor, limit)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
