@@ -66,6 +66,20 @@ func (s *service) ToggleLike(ctx context.Context, userID, postID string) (bool, 
 func (s *service) ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error) {
 	bookmarked, count, err := s.repo.ToggleBookmark(ctx, userID, postID)
 	if err == nil {
+		if s.hub != nil {
+			broadcastPayload, _ := json.Marshal(map[string]interface{}{
+				"postId":        postID,
+				"userId":        userID,
+				"isBookmarked":  bookmarked,
+				"bookmarkCount": count,
+			})
+			s.hub.SendToUser <- &websocket.MessagePayload{
+				UserID:  "*",
+				Type:    "BOOKMARK_UPDATE",
+				Payload: broadcastPayload,
+			}
+		}
+
 		payload, _ := json.Marshal(map[string]interface{}{"post_id": postID})
 		if queue.Client != nil {
 			_, errQueue := queue.Client.Enqueue(asynq.NewTask("post:update_trending_score", payload))

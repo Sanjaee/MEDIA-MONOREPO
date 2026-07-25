@@ -15,6 +15,7 @@ type Repository interface {
 	IncrementReplyCount(parentID string, step int) error
 	GetPostAuthorID(postID string) (string, error)
 	GetCommentAuthorID(commentID string) (string, error)
+	GetPostCommentCount(postID string) (int64, error)
 }
 
 type repository struct {
@@ -101,4 +102,10 @@ func (r *repository) GetCommentAuthorID(commentID string) (string, error) {
 	var authorID string
 	err := r.db.Table("comments").Select("author_id").Where("id = ?", commentID).Scan(&authorID).Error
 	return authorID, err
+}
+
+func (r *repository) GetPostCommentCount(postID string) (int64, error) {
+	var count int64
+	err := r.db.Model(&Comment{}).Where("post_id = ? AND parent_comment_id IS NULL AND deleted_at IS NULL", postID).Count(&count).Error
+	return count, err
 }

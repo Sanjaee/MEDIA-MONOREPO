@@ -26,6 +26,7 @@ export interface PostWithRelations {
     reposts: number;
     likes: number;
     views: number;
+    bookmarks: number;
   };
   hasLiked?: boolean;
   hasBookmarked?: boolean;

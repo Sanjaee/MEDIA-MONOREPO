@@ -156,6 +156,10 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
             window.dispatchEvent(new CustomEvent('newPost', { detail: data.payload }));
           } else if (data.type === "LIKE_UPDATE") {
             window.dispatchEvent(new CustomEvent('likeUpdate', { detail: data.payload }));
+          } else if (data.type === "BOOKMARK_UPDATE") {
+            window.dispatchEvent(new CustomEvent('bookmarkUpdate', { detail: data.payload }));
+          } else if (data.type === "COMMENT_UPDATE") {
+            window.dispatchEvent(new CustomEvent('commentUpdate', { detail: data.payload }));
           } else if (data.type === "TOP_LARP_UPDATE") {
             window.dispatchEvent(new CustomEvent('topLarpUpdate'));
           }

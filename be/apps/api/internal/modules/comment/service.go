@@ -8,6 +8,7 @@ import (
 
 	"media-api/internal/queue"
 	"media-api/internal/modules/notification"
+	"media-api/internal/websocket"
 
 	"github.com/hibiken/asynq"
 )
@@ -22,10 +23,11 @@ type Service interface {
 type service struct {
 	repository Repository
 	notifSv    notification.Service
+	hub        *websocket.Hub
 }
 
-func NewService(repository Repository, notifSv notification.Service) *service {
-	return &service{repository, notifSv}
+func NewService(repository Repository, notifSv notification.Service, hub *websocket.Hub) Service {
+	return &service{repository, notifSv, hub}
 }
 
 func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
@@ -66,6 +68,22 @@ func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
 			log.Printf("Failed to enqueue task post:update_trending_score: %v", err2)
 		}
 	}
+
+	if s.hub != nil {
+		count, err := s.repository.GetPostCommentCount(comment.PostID)
+		if err == nil {
+			broadcastPayload, _ := json.Marshal(map[string]interface{}{
+				"postId":       comment.PostID,
+				"commentCount": count,
+			})
+			s.hub.SendToUser <- &websocket.MessagePayload{
+				UserID:  "*",
+				Type:    "COMMENT_UPDATE",
+				Payload: broadcastPayload,
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -95,6 +113,21 @@ func (s *service) DeleteComment(ctx context.Context, id string, userID string) e
 		
 		task2 := asynq.NewTask("post:update_trending_score", payload)
 		_, _ = queue.Client.Enqueue(task2)
+	}
+
+	if s.hub != nil {
+		count, err := s.repository.GetPostCommentCount(comment.PostID)
+		if err == nil {
+			broadcastPayload, _ := json.Marshal(map[string]interface{}{
+				"postId":       comment.PostID,
+				"commentCount": count,
+			})
+			s.hub.SendToUser <- &websocket.MessagePayload{
+				UserID:  "*",
+				Type:    "COMMENT_UPDATE",
+				Payload: broadcastPayload,
+			}
+		}
 	}
 
 	return nil

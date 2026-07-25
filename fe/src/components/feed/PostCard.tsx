@@ -66,18 +66,25 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [isLiking, setIsLiking] = useState(false);
 
   const [isBookmarked, setIsBookmarked] = useState(post.hasBookmarked ?? false);
+  const [bookmarkCount, setBookmarkCount] = useState(post.stats?.bookmarks ?? 0);
   const [isBookmarking, setIsBookmarking] = useState(false);
+
+  const [commentCount, setCommentCount] = useState(post.stats?.replies ?? 0);
 
   // Sync local state if parent passes new props (e.g. from background refetch)
   useEffect(() => {
     setIsLiked(initialPost.hasLiked ?? false);
     setLikeCount(initialPost.stats?.likes ?? 0);
     setIsBookmarked(initialPost.hasBookmarked ?? false);
+    setBookmarkCount(initialPost.stats?.bookmarks ?? 0);
+    setCommentCount(initialPost.stats?.replies ?? 0);
     setPost(initialPost);
   }, [initialPost]);
 
   const clickCountRef = useRef(0);
+  const bookmarkClickCountRef = useRef(0);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const bookmarkDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { ref, inView } = useInView({
     threshold: 0.5,
@@ -109,8 +116,32 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
         }
       }
     };
+    const handleBookmarkUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { postId, userId, isBookmarked: payloadIsBookmarked, bookmarkCount: payloadBookmarkCount } = customEvent.detail;
+      if (postId === post.id) {
+        setBookmarkCount(payloadBookmarkCount);
+        if (session?.user?.id === userId) {
+          setIsBookmarked(payloadIsBookmarked);
+        }
+      }
+    };
+    const handleCommentUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { postId, commentCount: payloadCommentCount } = customEvent.detail;
+      if (postId === post.id) {
+        setCommentCount(payloadCommentCount);
+      }
+    };
+
     window.addEventListener('likeUpdate', handleLikeUpdate);
-    return () => window.removeEventListener('likeUpdate', handleLikeUpdate);
+    window.addEventListener('bookmarkUpdate', handleBookmarkUpdate);
+    window.addEventListener('commentUpdate', handleCommentUpdate);
+    return () => {
+      window.removeEventListener('likeUpdate', handleLikeUpdate);
+      window.removeEventListener('bookmarkUpdate', handleBookmarkUpdate);
+      window.removeEventListener('commentUpdate', handleCommentUpdate);
+    };
   }, [post.id, session?.user?.id]);
 
 
@@ -186,51 +217,70 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     }, 500); // 500ms network debounce (UI is instant)
   };
 
-  const handleBookmark = async () => {
+  const handleBookmark = () => {
     if (!session?.user) {
       toast.error("Please login to bookmark posts");
       return;
     }
-    if (isBookmarking) return;
 
-    setIsBookmarking(true);
     const prevBookmarked = isBookmarked;
+    const prevCount = Math.max(0, bookmarkCount);
 
     setIsBookmarked(!prevBookmarked);
+    setBookmarkCount(Math.max(0, prevCount + (prevBookmarked ? -1 : 1)));
 
-    try {
-      const result = await toggleBookmarkAction(post.id);
-      setIsBookmarked(result.bookmarked);
-      
-      // Sync React Query Cache for Bookmarks too
-      queryClient.setQueryData(['feed'], (oldData: any) => {
-        if (!oldData || !oldData.pages) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            posts: page.posts.map((p: any) => {
-              if (p.id === post.id) {
-                return { ...p, hasBookmarked: result.bookmarked };
-              }
-              return p;
-            })
-          }))
-        };
-      });
-      router.refresh();
+    bookmarkClickCountRef.current += 1;
 
-      if (result.bookmarked) {
-        toast.success("Post bookmarked!");
-      } else {
-        toast.success("Post removed from bookmarks.");
-      }
-    } catch (e) {
-      setIsBookmarked(prevBookmarked);
-      toast.error("Failed to bookmark post");
-    } finally {
-      setIsBookmarking(false);
+    if (bookmarkDebounceTimeoutRef.current) {
+      clearTimeout(bookmarkDebounceTimeoutRef.current);
     }
+
+    bookmarkDebounceTimeoutRef.current = setTimeout(async () => {
+      const clicks = bookmarkClickCountRef.current;
+      bookmarkClickCountRef.current = 0; // reset
+
+      if (clicks % 2 !== 0) {
+        setIsBookmarking(true);
+        try {
+          const result = await toggleBookmarkAction(post.id);
+          // Only update if backend successfully processes
+          if (result && typeof result.bookmarkCount === 'number') {
+            queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData: any) => {
+              if (!oldData || !oldData.pages) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any) => ({
+                  ...page,
+                  posts: page.posts.map((p: any) => {
+                    if (p.id === post.id) {
+                      return { 
+                        ...p, 
+                        hasBookmarked: result.bookmarked,
+                        stats: { ...p.stats, bookmarks: result.bookmarkCount }
+                      };
+                    }
+                    return p;
+                  })
+                }))
+              };
+            });
+            
+            queryClient.setQueriesData({ queryKey: ['post', post.id] }, (oldData: any) => {
+              if (!oldData) return oldData;
+              return {
+                ...oldData,
+                hasBookmarked: result.bookmarked,
+                stats: { ...oldData.stats, bookmarks: result.bookmarkCount }
+              };
+            });
+          }
+        } catch (e) {
+          console.error("Failed to sync bookmark state:", e);
+        } finally {
+          setIsBookmarking(false);
+        }
+      }
+    }, 500);
   };
 
   const [isAccessing, setIsAccessing] = useState(false);
@@ -560,7 +610,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
             className="flex-1 flex justify-center items-center gap-2 py-1.5 hover:bg-muted/50 rounded-md transition-colors text-[13px] font-medium"
           >
             <MessageCircle size={18} />
-            <span>{post.stats?.replies || 0}</span>
+            <span>{Math.max(0, commentCount) || 0}</span>
           </button>
 
           <button 
@@ -571,6 +621,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               size={18} 
               className={isBookmarked ? "fill-primary text-primary" : ""} 
             />
+            <span className={isBookmarked ? "text-primary" : ""}>{Math.max(0, bookmarkCount) || 0}</span>
           </button>
 
           <div className="flex-1 flex justify-center items-center gap-2 py-1.5 text-[13px] font-medium cursor-default">
