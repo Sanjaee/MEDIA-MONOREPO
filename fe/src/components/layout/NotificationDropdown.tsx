@@ -121,9 +121,7 @@ export function NotificationDropdown() {
                       <div className="flex w-full gap-3 relative group">
                         <div className="flex-shrink-0">
                           {notif.type === 'PRODUCT_SALE' ? (
-                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                              <Code className="w-5 h-5 text-muted-foreground" />
-                            </div>
+                            <img src="/logo.png" alt="System" className="w-10 h-10 rounded-full object-cover bg-muted" />
                           ) : notif.actor?.image ? (
                             <img src={notif.actor.image} alt={notif.actor.username || "User"} className="w-10 h-10 rounded-full object-cover bg-muted" />
                           ) : (
