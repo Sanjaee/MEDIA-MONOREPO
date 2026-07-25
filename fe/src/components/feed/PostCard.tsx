@@ -114,19 +114,12 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   }, [post.id, session?.user?.id]);
 
 
-  const [isOnCooldown, setIsOnCooldown] = useState(false);
-
   const handleLike = () => {
     if (!session?.user) {
       toast.error("Please login to like posts");
       return;
     }
     
-    if (isOnCooldown) {
-      toast.error("Please wait a few seconds before liking again (Rate limit)");
-      return;
-    }
-
     const prevLiked = isLiked;
     const prevCount = Math.max(0, likeCount);
 
@@ -134,7 +127,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     setIsLiked(!prevLiked);
     setLikeCount(Math.max(0, prevCount + (prevLiked ? -1 : 1)));
 
-    // Track clicks for debounce (Anti-Spam)
+    // Track clicks for network debounce (Anti-Spam)
     clickCountRef.current += 1;
 
     if (debounceTimeoutRef.current) {
@@ -150,13 +143,9 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
         setIsLiking(true);
         try {
           const result = await toggleLikeAction(post.id);
-          // Sync with real exact data from backend
           if (result && typeof result.likeCount === 'number') {
-            setIsLiked(result.isLiked || false);
-            setLikeCount(Math.max(0, result.likeCount));
-            
-            // Sync React Query Feed Cache globally
-            queryClient.setQueryData(['feed'], (oldData: any) => {
+            // Sync React Query Feed Cache globally for all feed types
+            queryClient.setQueriesData({ queryKey: ['feed'] }, (oldData: any) => {
               if (!oldData || !oldData.pages) return oldData;
               return {
                 ...oldData,
@@ -176,23 +165,25 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               };
             });
             
-            // Force Next.js to invalidate Server Components (Detail Page)
-            router.refresh();
+            // Also update individual post query if it exists
+            queryClient.setQueriesData({ queryKey: ['post', post.id] }, (oldData: any) => {
+              if (!oldData) return oldData;
+              return {
+                ...oldData,
+                hasLiked: result.isLiked,
+                stats: { ...oldData.stats, likes: result.likeCount }
+              };
+            });
           }
-        } catch (e) {
-          // Revert to known previous state on error
-          setIsLiked(prevLiked);
-          setLikeCount(prevCount);
-          toast.error("Failed to like post");
+        } catch (e: any) {
+          // Silent fail for Rate Limit (429) to keep it smooth!
+          // We DO NOT revert state here, letting it remain optimistic.
+          console.error("Failed to sync like state:", e);
         } finally {
           setIsLiking(false);
-          // Activate 5-second cooldown after sending a request
-          setIsOnCooldown(true);
-          setTimeout(() => setIsOnCooldown(false), 5000);
         }
       }
-    }, 1000); // 1s debounce
-
+    }, 500); // 500ms network debounce (UI is instant)
   };
 
   const handleBookmark = async () => {
