@@ -67,8 +67,12 @@ export default function CustomInvoicePage() {
       const data = await res.json();
       
       const payment = data?.data?.payment;
-      if (payment?.crypto_pending_amount) {
-        setInvoice((prev) => prev ? { ...prev, pending_amount: payment.crypto_pending_amount } : prev);
+      if (payment) {
+        setInvoice((prev) => prev ? { 
+          ...prev, 
+          ...(payment.crypto_pending_amount && { pending_amount: payment.crypto_pending_amount }),
+          ...(payment.crypto_received_amount && { crypto_received_amount: payment.crypto_received_amount })
+        } : prev);
       }
 
       if (data?.data?.status === "success") {
