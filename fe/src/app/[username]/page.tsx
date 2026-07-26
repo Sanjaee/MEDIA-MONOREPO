@@ -6,6 +6,8 @@ import { Star, Home, Settings, Megaphone, Check } from "lucide-react";
 import { getRoleBadge, getRoleNameClass, getRoleDisplayName } from "@/utils/roleStyles";
 import { FollowButton } from "@/components/FollowButton";
 import { cookies } from "next/headers";
+import { auth } from "@/auth";
+import { EditableProfileHeader } from "@/components/profile/EditableProfileHeader";
 
 interface PageProps {
   params: {
@@ -36,6 +38,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   const cookieStore = await cookies();
   const token = cookieStore.get("jwt")?.value || "";
+  const session = await auth();
 
   return (
     <main className="w-full flex flex-col bg-[#111111] text-[#cccccc] min-h-screen font-sans text-sm ">
@@ -49,41 +52,17 @@ export default async function UserProfilePage({ params }: PageProps) {
 
       {/* Profile Header Banner */}
       <div className="w-full bg-[#21425e] border border-[#333] p-4 flex gap-4 mt-4 shadow-sm">
-        <div className="shrink-0">
-          <div className="w-16 h-16 bg-black overflow-hidden border border-[#111]">
-            {user.image ? (
-              <Image
-                src={user.image}
-                alt={user.name || "User"}
-                width={64}
-                height={64}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-2xl bg-slate-800 text-white font-bold">
-                {user.name?.charAt(0).toUpperCase() || "U"}
-              </div>
-            )}
-          </div>
-        </div>
+        <EditableProfileHeader 
+          user={user} 
+          isOwner={(session as any)?.user?.id === user.id} 
+        />
 
-        <div className="flex flex-col justify-center gap-0.5">
-          <div className="flex items-center gap-1.5">
-            {!user.isBanned && user.role && (
-              <span className={getRoleBadge(user.role)} style={{ transform: "scale(1.2)", transformOrigin: "left center" }} />
-            )}
-            <h1 className={`text-xl font-bold shadow-sm ${user.isBanned ? 'text-white' : getRoleNameClass(user.role || 'member')}`} style={{ textShadow: "1px 1px 1px #000" }}>
-              {user.name}
-            </h1>
-          </div>
-          <div className="text-[11px] text-[#ccc] font-semibold mt-0.5" style={{ textShadow: "1px 1px 1px #000" }}>
-            {user.isBanned ? "Banned" : getRoleDisplayName(user.role || 'member')}
-          </div>
+        <div className="flex flex-col justify-end ml-auto">
           <div className="text-[11px] mt-1 flex flex-wrap items-center gap-2" style={{ textShadow: "1px 1px 1px #000" }}>
             <div>
               <span className="text-white">Status:</span> <span className="text-[#00ff00] font-semibold">Online</span> <span className="text-white">(Reading Thread Simple-ish questions @ 09:20 AM)</span>
             </div>
-            {!user.isBanned && (
+            {!user.isBanned && (session as any)?.user?.id !== user.id && (
               <>
                 <Link href={`/messages?userId=${user.id}`} className="bg-primary/20 text-primary border border-primary px-2 py-0.5 rounded shadow hover:bg-primary hover:text-black transition">
                   Send Message

@@ -39,7 +39,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	commentController := comment.NewController(commentService)
 
 	authRepo := auth.NewRepository(db)
-	authService := auth.NewService(authRepo)
+	authService := auth.NewService(authRepo, store)
 	authHandler := auth.NewHandler(authService)
 
 	interactionRepo := interaction.NewRepository(db)
@@ -107,6 +107,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 		api.GET("/users/search", authHandler.SearchUsers)
 		api.POST("/users/:id/follow", middleware.RateLimitMiddleware(cache.RDB, 50, 1*time.Hour), authHandler.ToggleFollow)
 		api.GET("/admin/users", authHandler.GetAllUsersAdmin)
+		api.PUT("/users/profile", middleware.RequireAuth(authService), authHandler.UpdateMyProfile)
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")

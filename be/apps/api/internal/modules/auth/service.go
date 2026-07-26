@@ -3,7 +3,9 @@ package auth
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"media-api/internal/modules/user"
+	"media-api/internal/storage"
 )
 
 type Service interface {
@@ -19,6 +22,7 @@ type Service interface {
 	GetUserByEmail(email string) (*user.User, error)
 	GetUserByAccount(provider, providerAccountId string) (*user.User, error)
 	UpdateUser(u *user.User) (*user.User, error)
+	UpdateMyProfile(userID string, name string, tempFilePath string) (*user.User, error)
 
 	LinkAccount(a *user.Account) (*user.Account, error)
 
@@ -36,11 +40,12 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
+	repo  Repository
+	store storage.Storage
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo}
+func NewService(repo Repository, store storage.Storage) Service {
+	return &service{repo, store}
 }
 
 func (s *service) CreateUser(u *user.User) (*user.User, error) {
@@ -234,4 +239,57 @@ func (s *service) GetAllUsersAdmin(adminUserID string) ([]user.User, error) {
 	}
 
 	return s.repo.GetAllUsersAdmin()
+}
+
+func (s *service) UpdateMyProfile(userID string, name string, tempFilePath string) (*user.User, error) {
+	u, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if name != "" {
+		u.Name = &name
+	}
+
+	if tempFilePath != "" {
+		if s.store == nil {
+			return nil, fmt.Errorf("storage not initialized")
+		}
+
+		file, err := os.Open(tempFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open media: %v", err)
+		}
+		defer file.Close()
+
+		// Detect content type
+		buffer := make([]byte, 512)
+		_, _ = file.Read(buffer)
+		file.Seek(0, 0)
+		contentType := http.DetectContentType(buffer)
+
+		key := fmt.Sprintf("users/%s_%s", userID, filepath.Base(tempFilePath))
+		if err := s.store.Upload(key, file, contentType); err != nil {
+			return nil, fmt.Errorf("failed to upload media: %v", err)
+		}
+		uploadedURL := s.store.GetURL(key)
+
+		// Delete old image if it exists to prevent orphaned images
+		if u.Image != nil && *u.Image != "" {
+			parts := strings.Split(*u.Image, "/")
+			if len(parts) > 0 {
+				oldKey := "users/" + parts[len(parts)-1]
+				_ = s.store.Delete(oldKey)
+			}
+		}
+
+		u.Image = &uploadedURL
+	}
+
+	err = s.repo.UpdateUser(u)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetUserByID(u.ID)
 }

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -259,4 +260,39 @@ func (h *Handler) GetAllUsersAdmin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, users)
+}
+
+func (h *Handler) UpdateMyProfile(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		userID = c.GetHeader("X-User-Id")
+	}
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	name := c.PostForm("name")
+
+	var tempFilePath string
+	file, _ := c.FormFile("image")
+	if file != nil {
+		// Save file temporarily
+		tempFilePath = "/tmp/" + file.Filename
+		if err := c.SaveUploadedFile(file, tempFilePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save uploaded file"})
+			return
+		}
+		// Ensure cleanup
+		defer os.Remove(tempFilePath)
+	}
+
+	updatedUser, err := h.service.UpdateMyProfile(userID, name, tempFilePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedUser)
 }
