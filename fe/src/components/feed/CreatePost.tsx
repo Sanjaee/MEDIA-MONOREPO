@@ -11,7 +11,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 
-import imageCompression from 'browser-image-compression';
+import { compressImage } from "@/utils/imageCompressor";
 
 export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   const { data: session } = useSession();
@@ -102,13 +102,8 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
 
       for (const file of selectedFiles) {
         if (file.type.startsWith("image/")) {
-          const options = {
-            maxSizeMB: 1, // Max file size in MB
-            maxWidthOrHeight: 1200, // Max width/height
-            useWebWorker: true,
-          };
           try {
-            const compressedFile = await imageCompression(file, options);
+            const compressedFile = await compressImage(file, 1200, 1200, 0.8);
             formData.append("media", compressedFile);
           } catch (error) {
             console.error("Compression failed:", error);

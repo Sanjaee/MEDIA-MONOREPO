@@ -1,5 +1,6 @@
 import { getProductSalesStatsAction, getWithdrawalHistoryAction } from "@/actions/product.actions";
 import { SalesDashboard } from "@/components/products/SalesDashboard";
+import { MonetizationTabs } from "@/components/layout/MonetizationTabs";
 
 export default async function SalesPage() {
   const [stats, history] = await Promise.all([
@@ -19,6 +20,7 @@ export default async function SalesPage() {
   return (
     <div className="flex flex-col h-full w-full overflow-y-auto">
       <div className="max-w-4xl w-full mx-auto p-4 sm:p-6 md:p-8">
+        <MonetizationTabs />
         <h1 className="text-2xl font-bold mb-6">Product Sales Dashboard</h1>
         <SalesDashboard stats={stats} initialHistory={history || []} />
       </div>

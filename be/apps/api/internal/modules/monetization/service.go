@@ -802,10 +802,33 @@ func (s *service) HandleCryptoWebhook(payload []byte) error {
 			// Activate AdSlot
 			// Need to find AdSlot by TransactionID
 			var ad AdSlot
-			if err := s.db.Where("transaction_id = ?", tx.ID).First(&ad).Error; err == nil {
-				s.repo.UpdateAdSlot(ad.ID, map[string]interface{}{
-					"status": "pending_setup",
-				})
+			if err := s.db.Where("id = ?", tx.ItemID).First(&ad).Error; err == nil {
+				now := time.Now()
+				
+				var duration time.Duration = 24 * time.Hour
+				if ad.DurationDays != nil {
+					duration = time.Duration(*ad.DurationDays) * 24 * time.Hour
+				}
+
+				newActiveUntil := now.Add(duration)
+				if ad.ActiveUntil != nil && ad.ActiveUntil.After(now) {
+					newActiveUntil = ad.ActiveUntil.Add(duration)
+				}
+
+				status := "pending_setup"
+				if ad.Status != nil && *ad.Status == "active" {
+					status = "active"
+				}
+
+				updates := map[string]interface{}{
+					"status":         status,
+					"active_until":   newActiveUntil,
+					"transaction_id": tx.ID,
+				}
+				if ad.ActiveFrom == nil {
+					updates["active_from"] = now
+				}
+				s.repo.UpdateAdSlot(ad.ID, updates)
 			}
 			if s.notifService != nil {
 				_ = s.notifService.CreateAdPaymentSuccessNotification(tx.UserID)
@@ -1066,6 +1089,16 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 }
 
 func (s *service) CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error) {
+	// First check if user already has an ad slot
+	var existingAd AdSlot
+	if err := s.db.Where("user_id = ?", userID).Order("created_at desc").First(&existingAd).Error; err == nil {
+		existingAd.DurationDays = &durationDays
+		if err := s.db.Save(&existingAd).Error; err != nil {
+			return nil, err
+		}
+		return &existingAd, nil
+	}
+
 	status := "pending_payment"
 	id := fmt.Sprintf("AD_%s", uuid.New().String())
 	ad := &AdSlot{
@@ -1196,6 +1229,15 @@ func (s *service) UpdateAdSlotDetails(userID, adID string, req SetupAdSlotReques
 		}
 		file.Close()
 		uploadedURL = s.store.GetURL(key)
+
+		// Delete old image if it exists to prevent orphaned images
+		if ad.ImageURL != nil && *ad.ImageURL != "" {
+			parts := strings.Split(*ad.ImageURL, "/")
+			if len(parts) > 0 {
+				oldKey := "ads/" + parts[len(parts)-1]
+				_ = s.store.Delete(oldKey)
+			}
+		}
 	} else {
 		// Keep the existing one if no new file is uploaded
 		uploadedURL = *ad.ImageURL
@@ -1231,6 +1273,22 @@ func (s *service) DeleteAdSlot(userID, adID string) error {
 			key := "ads/" + parts[len(parts)-1]
 			_ = s.store.Delete(key)
 		}
+	}
+
+	now := time.Now()
+	if ad.ActiveUntil != nil && ad.ActiveUntil.After(now) {
+		emptyStr := ""
+		pendingStatus := "pending_setup"
+		ad.Title = &emptyStr
+		ad.Description = &emptyStr
+		ad.ImageURL = &emptyStr
+		ad.LinkURL = &emptyStr
+		ad.Status = &pendingStatus
+
+		if err := s.db.Save(&ad).Error; err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if err := s.db.Delete(&ad).Error; err != nil {

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles, Loader2, X, Image as ImageIcon, Pencil, Trash2, Search } from "lucide-react";
 import axios from "axios";
 import { useRef } from "react";
+import { compressImage } from "@/utils/imageCompressor";
 
 export default function AdsPage() {
   const [pendingAds, setPendingAds] = useState<any[]>([]);
@@ -19,6 +20,8 @@ export default function AdsPage() {
   const [currencies, setCurrencies] = useState<any[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteAdId, setDeleteAdId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const router = useRouter();
 
@@ -146,7 +149,16 @@ export default function AdsPage() {
       formData.append("title", title);
       formData.append("linkUrl", linkUrl);
       formData.append("mediaType", mediaType);
-      formData.append("media", mediaFile);
+
+      let fileToUpload = mediaFile;
+      if (mediaFile.type.startsWith("image/")) {
+        try {
+          fileToUpload = await compressImage(mediaFile, 1200, 1200, 0.8) as File;
+        } catch (error) {
+          console.error("Compression failed:", error);
+        }
+      }
+      formData.append("media", fileToUpload);
 
       const res = await fetch(`/api/ads/${adId}/setup`, {
         method: "PUT",
@@ -157,12 +169,20 @@ export default function AdsPage() {
         throw new Error("Failed to submit ad");
       }
 
+      const responseData = await res.json();
+      const updatedAd = responseData.data;
+
       toast.success("Ad submitted successfully!");
       
       // Move to active ads
-      const newAd = pendingAds.find(a => a.id === adId);
-      if (newAd) {
-        setActiveAds(prev => [{...newAd, title, linkUrl, mediaType, imageUrl: URL.createObjectURL(mediaFile)}, ...prev]);
+      if (updatedAd) {
+        setActiveAds(prev => [updatedAd, ...prev]);
+      } else {
+        // Fallback if no data returned
+        const newAd = pendingAds.find(a => a.id === adId);
+        if (newAd) {
+          setActiveAds(prev => [{...newAd, title, linkUrl, mediaType, imageUrl: URL.createObjectURL(fileToUpload)}, ...prev]);
+        }
       }
       
       setPendingAds(prev => prev.filter(a => a.id !== adId));
@@ -212,7 +232,15 @@ export default function AdsPage() {
       formData.append("linkUrl", editLinkUrl);
       formData.append("mediaType", editMediaType);
       if (editMediaFile) {
-        formData.append("media", editMediaFile);
+        let fileToUpload = editMediaFile;
+        if (editMediaFile.type.startsWith("image/")) {
+          try {
+            fileToUpload = await compressImage(editMediaFile, 1200, 1200, 0.8) as File;
+          } catch (error) {
+            console.error("Compression failed:", error);
+          }
+        }
+        formData.append("media", fileToUpload);
       }
 
       const res = await fetch(`/api/ads/${editAd.id}`, {
@@ -224,12 +252,15 @@ export default function AdsPage() {
         throw new Error("Failed to edit ad");
       }
 
+      const responseData = await res.json();
+      const updatedAd = responseData.data;
+
       toast.success("Ad updated successfully!");
       
       // Update local state
       setActiveAds(prev => prev.map(ad => {
         if (ad.id === editAd.id) {
-          return {
+          return updatedAd || {
             ...ad,
             title: editTitle,
             linkUrl: editLinkUrl,
@@ -247,11 +278,12 @@ export default function AdsPage() {
     }
   };
 
-  const handleDeleteAd = async (adId: string) => {
-    if (!confirm("Are you sure you want to delete this ad? It cannot be undone.")) return;
+  const handleDeleteAd = async () => {
+    if (!deleteAdId) return;
+    setIsDeleting(true);
     
     try {
-      const res = await fetch(`/api/ads/${adId}`, {
+      const res = await fetch(`/api/ads/${deleteAdId}`, {
         method: "DELETE",
       });
 
@@ -260,9 +292,15 @@ export default function AdsPage() {
       }
 
       toast.success("Ad deleted successfully!");
-      setActiveAds(prev => prev.filter(ad => ad.id !== adId));
+      // Refetch both pending and active ads to handle the transition properly
+      const [pending, active] = await Promise.all([getMyPendingAds(), getMyActiveAdsAction()]);
+      setPendingAds(pending);
+      setActiveAds(active);
     } catch (e) {
       toast.error("Failed to delete ad");
+    } finally {
+      setIsDeleting(false);
+      setDeleteAdId(null);
     }
   };
 
@@ -434,7 +472,7 @@ export default function AdsPage() {
                     <button onClick={() => handleEditClick(ad)} className="bg-black/70 hover:bg-black text-white p-2 rounded-full transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDeleteAd(ad.id)} className="bg-red-500/70 hover:bg-red-600 text-white p-2 rounded-full transition-colors">
+                    <button onClick={() => setDeleteAdId(ad.id)} className="bg-red-500/70 hover:bg-red-600 text-white p-2 rounded-full transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -603,6 +641,33 @@ export default function AdsPage() {
                 <span className="font-medium text-white">Preparing checkout...</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Ad Modal */}
+      {deleteAdId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#16181c] border border-[#333] rounded-2xl w-full max-w-sm p-6 relative text-center">
+            <h2 className="text-xl font-bold mb-2 text-white">Delete Ad?</h2>
+            <p className="text-gray-400 text-sm mb-6">Are you sure you want to clear this ad's content? If your ad still has active time, it will be moved back to your pending ads.</p>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setDeleteAdId(null)}
+                variant="outline"
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleDeleteAd} 
+                disabled={isDeleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Delete"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
