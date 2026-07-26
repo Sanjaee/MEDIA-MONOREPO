@@ -106,6 +106,20 @@ export async function getPostById(postId: string) {
   }
 }
 
+export async function recordPostViewAction(postId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) return null;
+    
+    return fetchFromGo(`/posts/${postId}/view`, {
+      method: "POST",
+    });
+  } catch (error) {
+    console.error("Error recording post view:", error);
+    return null;
+  }
+}
+
 export async function toggleLikeAction(postId: string) {
   return fetchFromGo(`/posts/${postId}/like`, {
     method: 'POST'

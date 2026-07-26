@@ -22,6 +22,7 @@ type Service interface {
 	GetLatestFeed(ctx context.Context, userID string, cursor string, limit int) ([]Post, error)
 	GetTrendingFeed(ctx context.Context, userID string, cursorScore float64, cursorID string, limit int) ([]Post, error)
 	GetSearchFeed(ctx context.Context, userID string, keyword string, cursor string, limit int) ([]Post, error)
+	RecordView(ctx context.Context, userID string, postID string) (bool, error)
 }
 
 type service struct {
@@ -241,4 +242,19 @@ func scrubPosts(posts []Post, userID string) []Post {
 		}
 	}
 	return posts
+}
+
+func (s *service) RecordView(ctx context.Context, userID string, postID string) (bool, error) {
+	incremented, err := s.repository.RecordView(ctx, userID, postID)
+	if err == nil && incremented {
+		// Enqueue task to update trending score because view count changed
+		payload, _ := json.Marshal(map[string]interface{}{"post_id": postID})
+		if queue.Client != nil {
+			_, errQueue := queue.Client.Enqueue(asynq.NewTask("post:update_trending_score", payload))
+			if errQueue != nil {
+				// log it but don't fail the request
+			}
+		}
+	}
+	return incremented, err
 }

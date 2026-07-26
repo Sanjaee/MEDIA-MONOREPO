@@ -71,6 +71,8 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
 
   const [commentCount, setCommentCount] = useState(post.stats?.replies ?? 0);
 
+  const [viewCount, setViewCount] = useState(post.stats?.views || 0);
+
   // Sync local state if parent passes new props (e.g. from background refetch)
   useEffect(() => {
     setIsLiked(initialPost.hasLiked ?? false);
@@ -78,6 +80,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     setIsBookmarked(initialPost.hasBookmarked ?? false);
     setBookmarkCount(initialPost.stats?.bookmarks ?? 0);
     setCommentCount(initialPost.stats?.replies ?? 0);
+    setViewCount(initialPost.stats?.views ?? 0);
     setPost(initialPost);
   }, [initialPost]);
 
@@ -85,6 +88,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const bookmarkClickCountRef = useRef(0);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const bookmarkDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRecordedView = useRef(false);
 
   const { ref, inView } = useInView({
     threshold: 0.5,
@@ -92,17 +96,16 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   });
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    if (inView && session?.user && session.user.id !== post.author.id) {
-      timeout = setTimeout(() => {
-        fetch('/api/posts/view', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ postId: post.id })
-        }).catch(console.error);
-      }, 3000);
+    if (inView && session?.user && session.user.id !== post.author.id && !hasRecordedView.current) {
+      hasRecordedView.current = true;
+      import("@/actions/post.actions").then(({ recordPostViewAction }) => {
+         recordPostViewAction(post.id).then((res) => {
+           if (res && res.incremented) {
+             setViewCount(v => v + 1);
+           }
+         });
+      });
     }
-    return () => clearTimeout(timeout);
   }, [inView, session?.user, post.id, post.author.id]);
 
   useEffect(() => {
@@ -626,7 +629,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
 
           <div className="flex-1 flex justify-center items-center gap-2 py-1.5 text-[13px] font-medium cursor-default">
             <BarChart2 size={18} />
-            <span>{post.stats?.views || 0}</span>
+            <span>{viewCount || 0}</span>
           </div>
 
           <button 

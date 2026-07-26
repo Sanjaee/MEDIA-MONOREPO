@@ -242,6 +242,24 @@ func (c *Controller) DeletePost(ctx *gin.Context) {
 
 
 
+// RecordView handles POST /api/posts/:id/view
+func (c *Controller) RecordView(ctx *gin.Context) {
+	postID := ctx.Param("id")
+	userID := ctx.GetString("userID")
+	if userID == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	incremented, err := c.service.RecordView(ctx.Request.Context(), userID, postID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "success", "incremented": incremented})
+}
+
 // RegisterRoutes registers HTTP routes for post module
 func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 	// e.g. api/feed/latest
@@ -261,6 +279,7 @@ func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 		postRoutes.GET("/:id", controller.GetPostById)
 		postRoutes.PUT("/:id", controller.UpdatePost)
 		postRoutes.DELETE("/:id", controller.DeletePost)
+		postRoutes.POST("/:id/view", controller.RecordView)
 		// postRoutes.POST("/:id/bookmark", controller.ToggleBookmark)
 	}
 }

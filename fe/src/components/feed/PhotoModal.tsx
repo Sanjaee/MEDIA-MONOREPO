@@ -75,15 +75,32 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
   const [isBookmarked, setIsBookmarked] = useState(post.hasBookmarked ?? false);
   const [isBookmarking, setIsBookmarking] = useState(false);
 
+  const [viewCount, setViewCount] = useState(post.stats?.views || 0);
+
   const clickCountRef = useRef(0);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRecordedView = useRef(false);
 
   // Sync state if post prop changes
   useEffect(() => {
     setIsLiked(post.hasLiked ?? false);
     setLikeCount(post.stats?.likes ?? 0);
     setIsBookmarked(post.hasBookmarked ?? false);
+    setViewCount(post.stats?.views ?? 0);
   }, [post]);
+
+  useEffect(() => {
+    if (session?.user && session.user.id !== post.author.id && !hasRecordedView.current) {
+      hasRecordedView.current = true;
+      import("@/actions/post.actions").then(({ recordPostViewAction }) => {
+         recordPostViewAction(post.id).then((res) => {
+           if (res && res.incremented) {
+             setViewCount(v => v + 1);
+           }
+         });
+      });
+    }
+  }, [session?.user, post.id, post.author.id]);
 
   const handleLike = () => {
     if (!session?.user) {
@@ -275,7 +292,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
 
              <div className="flex-1 flex justify-center items-center gap-2 py-1.5 text-[13px] font-medium cursor-default">
                <BarChart2 size={18} />
-               <span>{post.stats?.views || 0}</span>
+               <span>{viewCount || 0}</span>
              </div>
 
              <button 

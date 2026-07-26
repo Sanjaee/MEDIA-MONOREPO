@@ -1,6 +1,7 @@
 package post
 
 import (
+	"context"
 	"time"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,8 @@ type Repository interface {
 	GetHotFeed(userID string, cursorScore float64, cursorID string, limit int) ([]Post, error)
 	GetMediaFeed(userID string, cursor string, limit int) ([]Post, error)
 	GetSearchFeed(userID string, keyword string, cursor string, limit int) ([]Post, error)
+
+	RecordView(ctx context.Context, userID, postID string) (bool, error)
 }
 
 type repository struct {
@@ -182,4 +185,27 @@ func applyVisibility(query *gorm.DB, userID string) *gorm.DB {
 		))
 	`
 	return query.Where(visibilityCondition, userID, userID)
+}
+
+func (r *repository) RecordView(ctx context.Context, userID, postID string) (bool, error) {
+	// Better to use GORM's built-in creation or just raw SQL for ON CONFLICT
+	// Let's use raw SQL for precise control over ON CONFLICT
+	
+	result := r.db.WithContext(ctx).Exec(`
+		INSERT INTO post_views (id, post_id, user_id, created_at)
+		VALUES (gen_random_uuid(), ?, ?, NOW())
+		ON CONFLICT (post_id, user_id) DO NOTHING
+	`, postID, userID)
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	if result.RowsAffected > 0 {
+		// Increment the view count on the post
+		r.db.WithContext(ctx).Model(&Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
+		return true, nil
+	}
+
+	return false, nil
 }
