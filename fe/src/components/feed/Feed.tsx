@@ -49,8 +49,9 @@ export function Feed({ initialData }: { initialData: { posts: PostWithRelations[
       const customEvent = e as CustomEvent;
       const payload = customEvent.detail;
       
-      // Don't show for our own posts
+      // Don't show the "posted" banner for our own posts, just refresh seamlessly
       if (session?.user?.id && payload.authorId === session.user.id) {
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
         return;
       }
       

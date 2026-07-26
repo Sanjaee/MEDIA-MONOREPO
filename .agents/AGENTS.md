@@ -13,5 +13,6 @@ Whenever you write new code, modify existing code, or are asked to "build", you 
 Steps to rebuild:
 1. Run `docker-compose -f docker-compose.prod.yml build`
 2. Run `docker-compose -f docker-compose.prod.yml up -d`
+3. Run `docker restart media-nginx` to flush cached internal IPs and avoid 502 Bad Gateway.
 
 Do this automatically and inform the user that you are rebuilding the Docker containers in the background.

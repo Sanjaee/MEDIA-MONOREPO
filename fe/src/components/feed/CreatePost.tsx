@@ -84,6 +84,7 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const handleSubmit = async () => {
+    if (!session?.user) return;
     if (!content.trim() && selectedFiles.length === 0) return;
     
     setIsSubmitting(true);
@@ -129,13 +130,39 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
         throw new Error(`Failed to create post: ${res.statusText}`);
       }
 
-      const newPost = await res.json();
+      const rawPost = await res.json();
       
-      // Jika tidak ada media, post bisa langsung dimunculkan di UI
-      // Tapi jika ada media, kita tidak memasukkannya ke state addPost() 
-      // karena kita menunggu notifikasi WebSocket dari background worker.
+      const newPost = {
+        ...rawPost,
+        author: {
+          id: session?.user?.id || "",
+          name: session?.user?.name || "",
+          username: (session?.user as any)?.username || "",
+          image: session?.user?.image || "",
+        },
+        like_count: 0,
+        comment_count: 0,
+        repost_count: 0,
+        view_count: 0,
+        has_liked: false,
+        has_bookmarked: false,
+        has_bought: false,
+      };
+      
+      // Optimistic update to React Query feed cache
       if (selectedFiles.length === 0) {
-        addPost(newPost);
+        queryClient.setQueryData(['feed'], (oldData: any) => {
+          if (!oldData) return oldData;
+          const newPages = [...oldData.pages];
+          newPages[0] = {
+            ...newPages[0],
+            posts: [newPost, ...newPages[0].posts],
+          };
+          return {
+            ...oldData,
+            pages: newPages,
+          };
+        });
       }
       
       setContent("");
@@ -152,10 +179,6 @@ export function CreatePost({ onSuccess }: { onSuccess?: () => void }) {
       }
 
       if (onSuccess) onSuccess();
-      
-      if (selectedFiles.length === 0) {
-        queryClient.invalidateQueries({ queryKey: ['feed'] });
-      }
     } catch (e) {
       console.error("Error creating post:", e);
       toast.error("Failed to create post. Please ensure your files are not too large.");

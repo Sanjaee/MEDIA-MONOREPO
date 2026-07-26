@@ -10,13 +10,15 @@ import (
 
 	"net/http"
 	"path/filepath"
+	"bytes"
 	"image"
-	_ "image/jpeg"
+	"image/jpeg"
 	_ "image/png"
 	_ "image/gif"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
+	"github.com/nfnt/resize"
 	"gorm.io/gorm"
 
 	"media-api/internal/storage"
@@ -89,16 +91,43 @@ func HandleMediaProcess(db *gorm.DB, hub *websocket.Hub, store storage.Storage) 
 			mediaID := uuid.New().String()
 			key := fmt.Sprintf("posts/%s%s", mediaID, fileExt)
 
-			if err := store.Upload(key, file, contentType); err != nil {
-				log.Printf("Failed to upload %s to R2: %v", tempFile, err)
-				file.Close()
-				continue
-			}
-			
-			// Try to get file size for Bytes field
 			var fileBytes int
-			if stat, err := file.Stat(); err == nil {
-				fileBytes = int(stat.Size())
+			isCompressed := false
+
+			if mediaType == "image" {
+				file.Seek(0, 0)
+				if img, _, err := image.Decode(file); err == nil {
+					img = resize.Thumbnail(1080, 1080, img, resize.Lanczos3)
+					b := img.Bounds()
+					w := b.Dx()
+					h := b.Dy()
+					width = &w
+					height = &h
+
+					var buf bytes.Buffer
+					if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 82}); err == nil {
+						contentType = "image/jpeg"
+						fileExt = ".jpg"
+						key = fmt.Sprintf("posts/%s%s", mediaID, fileExt)
+						
+						if err := store.Upload(key, bytes.NewReader(buf.Bytes()), contentType); err == nil {
+							fileBytes = buf.Len()
+							isCompressed = true
+						}
+					}
+				}
+			}
+
+			if !isCompressed {
+				file.Seek(0, 0)
+				if err := store.Upload(key, file, contentType); err != nil {
+					log.Printf("Failed to upload %s to R2: %v", tempFile, err)
+					file.Close()
+					continue
+				}
+				if stat, err := file.Stat(); err == nil {
+					fileBytes = int(stat.Size())
+				}
 			}
 
 			file.Close()

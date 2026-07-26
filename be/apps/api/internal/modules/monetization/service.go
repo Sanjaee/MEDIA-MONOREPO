@@ -1114,7 +1114,7 @@ func (s *service) SetupAdSlot(userID, adID string, req SetupAdSlotRequest, tempF
 		file.Seek(0, 0)
 		contentType := http.DetectContentType(buffer)
 		
-		key := fmt.Sprintf("ads/%s/%s", adID, filepath.Base(tempFilePath))
+		key := fmt.Sprintf("ads/%s_%s", adID, filepath.Base(tempFilePath))
 		if err := s.store.Upload(key, file, contentType); err != nil {
 			file.Close()
 			return nil, fmt.Errorf("failed to upload media: %v", err)
@@ -1189,7 +1189,7 @@ func (s *service) UpdateAdSlotDetails(userID, adID string, req SetupAdSlotReques
 		file.Seek(0, 0)
 		contentType := http.DetectContentType(buffer)
 		
-		key := fmt.Sprintf("ads/%s/%s", adID, filepath.Base(tempFilePath))
+		key := fmt.Sprintf("ads/%s_%s", adID, filepath.Base(tempFilePath))
 		if err := s.store.Upload(key, file, contentType); err != nil {
 			file.Close()
 			return nil, fmt.Errorf("failed to upload media: %v", err)
@@ -1220,14 +1220,23 @@ func (s *service) UpdateAdSlotDetails(userID, adID string, req SetupAdSlotReques
 }
 
 func (s *service) DeleteAdSlot(userID, adID string) error {
-	ad, err := s.repo.FindAdSlotByID(adID)
-	if err != nil {
-		return fmt.Errorf("ad slot not found")
+	var ad AdSlot
+	if err := s.db.Where("id = ? AND user_id = ?", adID, userID).First(&ad).Error; err != nil {
+		return err
 	}
-	if ad.UserID != userID {
-		return fmt.Errorf("unauthorized")
+
+	if ad.ImageURL != nil && *ad.ImageURL != "" {
+		parts := strings.Split(*ad.ImageURL, "/")
+		if len(parts) > 0 {
+			key := "ads/" + parts[len(parts)-1]
+			_ = s.store.Delete(key)
+		}
 	}
-	return s.repo.DeleteAdSlot(adID)
+
+	if err := s.db.Delete(&ad).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *service) GetProductSalesStats(userID string) (*ProductSalesStats, error) {

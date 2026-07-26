@@ -49,7 +49,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
     e.stopPropagation();
     if (hasPrevious) {
       const prevId = post.media![currentIndex - 1].id;
-      router.replace(`/${post.author.username || 'user'}/status/${post.id}/photo/${prevId}`, { scroll: false });
+      router.replace(`/${post.author?.username || 'user'}/status/${post.id}/photo/${prevId}`, { scroll: false });
     }
   };
 
@@ -57,7 +57,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
     e.stopPropagation();
     if (hasNext) {
       const nextId = post.media![currentIndex + 1].id;
-      router.replace(`/${post.author.username || 'user'}/status/${post.id}/photo/${nextId}`, { scroll: false });
+      router.replace(`/${post.author?.username || 'user'}/status/${post.id}/photo/${nextId}`, { scroll: false });
     }
   };
 
@@ -90,7 +90,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
   }, [post]);
 
   useEffect(() => {
-    if (session?.user && session.user.id !== post.author.id && !hasRecordedView.current) {
+    if (session?.user && session.user.id !== post.author?.id && !hasRecordedView.current) {
       hasRecordedView.current = true;
       import("@/actions/post.actions").then(({ recordPostViewAction }) => {
          recordPostViewAction(post.id).then((res) => {
@@ -100,7 +100,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
          });
       });
     }
-  }, [session?.user, post.id, post.author.id]);
+  }, [session?.user, post.id, post.author?.id]);
 
   const handleLike = () => {
     if (!session?.user) {
@@ -175,7 +175,7 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
     setShowShareDialog(true);
   };
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${post.author.username || 'user'}/status/${post.id}/photo/${photoId}` : '';
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${post.author?.username || 'user'}/status/${post.id}/photo/${photoId}` : '';
 
   const copyToClipboard = () => {
     if (typeof navigator !== 'undefined') {

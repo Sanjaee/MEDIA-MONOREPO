@@ -191,7 +191,7 @@ export default async function UserProfilePage({ params }: PageProps) {
                       New Thread
                     </div>
                     <div className="text-white font-bold truncate mt-1">
-                      {post.content.length > 40 ? post.content.substring(0, 40) + "..." : post.content}
+                      {post.content && post.content.length > 40 ? post.content.substring(0, 40) + "..." : (post.content || "Attached media")}
                     </div>
                     <div className="text-[#888] text-[10px]">
                       In Introductions

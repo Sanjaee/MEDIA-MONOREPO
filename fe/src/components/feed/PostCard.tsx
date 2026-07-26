@@ -96,7 +96,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   });
 
   useEffect(() => {
-    if (inView && session?.user && session.user.id !== post.author.id && !hasRecordedView.current) {
+    if (inView && session?.user && session.user.id !== post.author?.id && !hasRecordedView.current) {
       hasRecordedView.current = true;
       import("@/actions/post.actions").then(({ recordPostViewAction }) => {
          recordPostViewAction(post.id).then((res) => {
@@ -106,7 +106,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
          });
       });
     }
-  }, [inView, session?.user, post.id, post.author.id]);
+  }, [inView, session?.user, post.id, post.author?.id]);
 
   useEffect(() => {
     const handleLikeUpdate = (e: Event) => {
@@ -359,7 +359,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     setShowShareDialog(true);
   };
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${post.author.username || 'user'}/status/${post.id}` : '';
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${post.author?.username || 'user'}/status/${post.id}` : '';
 
   const copyToClipboard = () => {
     if (typeof navigator !== 'undefined') {
@@ -398,7 +398,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     }
   };
 
-  const isOwner = session?.user?.id === post.author.id;
+  const isOwner = session?.user?.id === post.author?.id;
 
   const handleArticleClick = (e: React.MouseEvent) => {
     // Prevent navigation if any dialog is currently open
@@ -416,7 +416,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
       return;
     }
 
-    router.push(`/${post.author.username || 'user'}/status/${post.id}`);
+    router.push(`/${post.author?.username || 'user'}/status/${post.id}`);
   };
 
   return (
@@ -429,31 +429,31 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
       <div className="flex justify-between items-start mb-2">
         <div className="flex gap-2 text-sm">
           {/* Avatar */}
-          <Link href={`/${post.author.username || 'user'}`} className="shrink-0">
+          <Link href={`/${post.author?.username || 'user'}`} className="shrink-0">
             <Avatar className="w-10 h-10">
-              <AvatarImage src={post.author.image ?? ""} alt={post.author.name ?? ""} />
-              <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
+              <AvatarImage src={post.author?.image ?? ""} alt={post.author?.name ?? ""} />
+              <AvatarFallback>{post.author?.name?.charAt(0)}</AvatarFallback>
             </Avatar>
           </Link>
 
           {/* Name & Meta */}
           <div className="flex flex-col">
             <div className="flex flex-wrap items-center gap-1">
-              <Link href={`/${post.author.username || 'user'}`} className="truncate">
-                <UserNameWithRole displayName={post.author.name || ""} role={post.author.role} className="mb-0 text-sm" />
+              <Link href={`/${post.author?.username || 'user'}`} className="truncate">
+                <UserNameWithRole displayName={post.author?.name || ""} role={post.author?.role} className="mb-0 text-sm" />
               </Link>
-              {post.author.isVerified && (
+              {post.author?.isVerified && (
                 <span className="text-primary text-[10px] bg-primary/10 rounded-full w-4 h-4 flex items-center justify-center">
                   ✓
                 </span>
               )}
               <span className="text-muted-foreground">·</span>
-              <Link href={`/${post.author.username || 'user'}/status/${post.id}`} className="text-muted-foreground hover:underline whitespace-nowrap text-xs">
+              <Link href={`/${post.author?.username || 'user'}/status/${post.id}`} className="text-muted-foreground hover:underline whitespace-nowrap text-xs">
                 {post.createdAt ? new Date(post.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
               </Link>
             </div>
-            <Link href={`/${post.author.username || 'user'}`} className="text-muted-foreground truncate text-sm">
-              @{post.author.username}
+            <Link href={`/${post.author?.username || 'user'}`} className="text-muted-foreground truncate text-sm">
+              @{post.author?.username}
             </Link>
           </div>
         </div>
@@ -494,7 +494,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer text-yellow-600 focus:text-yellow-600 focus:bg-yellow-500/10 gap-2" onClick={() => toast.info("Block feature coming soon!")}>
                     <Ban size={16} />
-                    <span>Block @{post.author.username}</span>
+                    <span>Block @{post.author?.username}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 gap-2" onClick={() => toast.info("Report feature coming soon!")}>
                     <Flag size={16} />
@@ -561,7 +561,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
               ) : (
                 <Link 
                   key={media.id} 
-                  href={`/${post.author.username || 'user'}/status/${post.id}/photo/${media.id}`}
+                  href={`/${post.author?.username || 'user'}/status/${post.id}/photo/${media.id}`}
                   scroll={false}
                   className="block relative"
                 >
