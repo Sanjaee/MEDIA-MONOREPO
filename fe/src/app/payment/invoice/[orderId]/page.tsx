@@ -85,7 +85,7 @@ export default function CustomInvoicePage() {
         if (type === 'product') {
           setRedirectUrl(`/post/${iId}`);
         } else if (type === 'ad') {
-          setRedirectUrl('/products/ads');
+          setRedirectUrl('/products/monetization?tab=ads');
         } else {
           setRedirectUrl('/');
         }

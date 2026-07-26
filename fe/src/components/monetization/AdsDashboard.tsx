@@ -11,7 +11,38 @@ import axios from "axios";
 import { useRef } from "react";
 import { compressImage } from "@/utils/imageCompressor";
 
-export default function AdsPage() {
+function ActiveAdTimer({ activeUntil }: { activeUntil: string }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    const update = () => {
+      const difference = new Date(activeUntil).getTime() - new Date().getTime();
+      if (difference <= 0) {
+        setTimeLeft("Expired");
+        return;
+      }
+      
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+      
+      if (days > 0) {
+        setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    };
+    
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [activeUntil]);
+
+  return <span>{timeLeft}</span>;
+}
+
+export function AdsDashboard() {
   const [pendingAds, setPendingAds] = useState<any[]>([]);
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,8 +344,8 @@ export default function AdsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-8 w-full pt-12 pb-24">
-      <h1 className="text-3xl font-bold mb-2">Premium Ad Slots</h1>
+    <div className="w-full">
+      <h1 className="text-3xl font-bold mb-2 mt-6">Premium Ad Slots</h1>
       <p className="text-muted-foreground mb-8">Feature your content in the right sidebar to reach all active users.</p>
 
       {/* Buy Ad Slot Section */}
@@ -468,6 +499,12 @@ export default function AdsPage() {
                   ) : (
                     <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover" />
                   )}
+                  <div className="absolute top-2 left-2">
+                    <div className="bg-orange-500/80 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold shadow flex items-center gap-1.5 border border-orange-400/50">
+                      <span>⏱</span>
+                      <ActiveAdTimer activeUntil={ad.activeUntil} />
+                    </div>
+                  </div>
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button onClick={() => handleEditClick(ad)} className="bg-black/70 hover:bg-black text-white p-2 rounded-full transition-colors">
                       <Pencil className="w-4 h-4" />

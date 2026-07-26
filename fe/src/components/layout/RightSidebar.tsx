@@ -37,7 +37,7 @@ export function RightSidebar() {
         {ads.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg text-center gap-2">
             <span className="text-sm text-muted-foreground">No active ads right now.</span>
-            <Link href="/products/ads" className="text-sm font-bold text-primary hover:underline">Be the first!</Link>
+            <Link href="/products/monetization?tab=ads" className="text-sm font-bold text-primary hover:underline">Be the first!</Link>
           </div>
         ) : (
           <div className="flex flex-col gap-2 relative">

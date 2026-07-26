@@ -1,36 +1,38 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export function MonetizationTabs() {
-  const pathname = usePathname();
+interface MonetizationTabsProps {
+  activeTab: "sales" | "ads";
+  setActiveTab: (tab: "sales" | "ads") => void;
+}
+
+export function MonetizationTabs({ activeTab, setActiveTab }: MonetizationTabsProps) {
   
   return (
     <div className="flex space-x-1 border-b border-border/40 mb-6 pb-px">
-      <Link 
-        href="/products/sales"
+      <button 
+        onClick={() => setActiveTab("sales")}
         className={cn(
           "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-          pathname === "/products/sales" 
+          activeTab === "sales"
             ? "border-primary text-foreground" 
             : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
         )}
       >
         Product Sales
-      </Link>
-      <Link 
-        href="/products/ads"
+      </button>
+      <button 
+        onClick={() => setActiveTab("ads")}
         className={cn(
           "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
-          pathname === "/products/ads" 
+          activeTab === "ads"
             ? "border-primary text-foreground" 
             : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
         )}
       >
         Advertising
-      </Link>
+      </button>
     </div>
   );
 }
