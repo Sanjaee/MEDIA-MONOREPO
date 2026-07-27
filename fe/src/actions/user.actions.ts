@@ -21,7 +21,20 @@ export async function searchUsersAction(query: string) {
     });
     if (!res.ok) return [];
     return await res.json();
-  } catch (e) {
-    return [];
-  }
+	} catch (e) {
+		return [];
+	}
+}
+
+export async function getTopLarp() {
+	try {
+		const res = await fetch(`${API_URL}/users/top-larp`, {
+			cache: 'no-store'
+		});
+		if (!res.ok) return [];
+		const data = await res.json();
+		return data.users || [];
+	} catch (e) {
+		return [];
+	}
 }

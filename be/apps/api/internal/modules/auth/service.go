@@ -34,6 +34,9 @@ type Service interface {
 	SearchUsers(query string, limit int) ([]user.User, error)
 	ToggleFollow(followerID, followingID string) (bool, error)
 	GetAllUsersAdmin(adminUserID string) ([]user.User, error)
+	GetTopSpenders(limit int) ([]map[string]interface{}, error)
+	GetTopSellers(limit int) ([]map[string]interface{}, error)
+	GetTopLarpOverall(limit int) ([]map[string]interface{}, error)
 
 	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*jwt.RegisteredClaims, error)
@@ -239,6 +242,18 @@ func (s *service) GetAllUsersAdmin(adminUserID string) ([]user.User, error) {
 	}
 
 	return s.repo.GetAllUsersAdmin()
+}
+
+func (s *service) GetTopSpenders(limit int) ([]map[string]interface{}, error) {
+	return s.repo.GetTopSpenders(limit)
+}
+
+func (s *service) GetTopSellers(limit int) ([]map[string]interface{}, error) {
+	return s.repo.GetTopSellers(limit)
+}
+
+func (s *service) GetTopLarpOverall(limit int) ([]map[string]interface{}, error) {
+	return s.repo.GetTopLarpOverall(limit)
 }
 
 func (s *service) UpdateMyProfile(userID string, name string, tempFilePath string) (*user.User, error) {

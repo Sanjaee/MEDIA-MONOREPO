@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getActiveAds } from "@/actions/ads.actions";
-import { getRecentRoleBuyers } from "@/actions/roles.actions";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
+import { getTopLarp } from "@/actions/user.actions";
 import { useSession } from "next-auth/react";
 import EmblaCarousel from "@/components/ui/embla/EmblaCarousel";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,18 +12,25 @@ import { motion, AnimatePresence } from "framer-motion";
 export function RightSidebar() {
   const { data: session } = useSession();
   const [ads, setAds] = useState<any[]>([]);
-  const [buyers, setBuyers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchAds = () => getActiveAds().then(setAds).catch(console.error);
-    const fetchBuyers = () => getRecentRoleBuyers().then(setBuyers).catch(console.error);
+    const fetchTopLarp = async () => {
+      try {
+        const data = await getTopLarp();
+        setUsers(data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
     
     // Initial fetch
     fetchAds();
-    fetchBuyers();
+    fetchTopLarp();
     
     // Listen for WebSocket updates
-    const handleUpdate = () => fetchBuyers();
+    const handleUpdate = () => fetchTopLarp();
     window.addEventListener('topLarpUpdate', handleUpdate);
     
     return () => {
@@ -48,42 +55,44 @@ export function RightSidebar() {
 
       <div className="bg-muted/50 rounded-xl p-4">
         <h2 className="font-bold text-lg mb-4">Top Larp</h2>
+        
         <div className="flex flex-col gap-4">
-          {buyers.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No recent role upgrades yet.</p>
+          {users.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No data available yet.</p>
           ) : (
             <AnimatePresence mode="popLayout">
-              {buyers.map((buyer) => (
-                <motion.div 
-                  key={buyer.username} 
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-center gap-3"
-                >
-                  <img 
-                    src={buyer.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${buyer.username}`} 
-                    alt={buyer.username} 
-                    className="w-10 h-10 rounded-full bg-background border object-cover" 
-                  />
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center justify-between w-full">
-                      <UserNameWithRole 
-                        displayName={buyer.name || buyer.username}
-                        role={buyer.role}
-                        className="text-sm"
-                      />
-                      {buyer.totalSpend > 0 && (
-                        <span className="text-xs font-bold text-green-500 whitespace-nowrap ml-2">
-                          +${(buyer.totalSpend / 100).toFixed(2)}
-                        </span>
-                      )}
+              {users.map((user) => (
+                <Link href={`/${user.username}`} key={user.username} className="block group">
+                  <motion.div 
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/80 transition-colors"
+                  >
+                    <img 
+                      src={user.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
+                      alt={user.username} 
+                      className="w-10 h-10 rounded-full bg-background border object-cover" 
+                    />
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <div className="flex items-center justify-between w-full">
+                        <UserNameWithRole 
+                          displayName={user.name || user.username}
+                          role={user.role}
+                          className="text-sm"
+                        />
+                        {user.total_amount > 0 && (
+                          <span className="text-xs font-bold text-green-500 whitespace-nowrap ml-2">
+                            +${(user.total_amount / 100).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">@{user.username}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground truncate max-w-[150px]">@{buyer.username}</span>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                </Link>
               ))}
             </AnimatePresence>
           )}

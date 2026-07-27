@@ -296,3 +296,16 @@ func (h *Handler) UpdateMyProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, updatedUser)
 }
+
+func (h *Handler) GetTopLarp(c *gin.Context) {
+	larps, err := h.service.GetTopLarpOverall(10)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch top larp"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"users": larps,
+	})
+}
+

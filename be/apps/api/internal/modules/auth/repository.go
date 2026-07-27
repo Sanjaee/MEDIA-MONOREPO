@@ -27,6 +27,9 @@ type Repository interface {
 	SearchUsers(query string, limit int) ([]user.User, error)
 	ToggleFollow(followerID, followingID string) (bool, error)
 	GetAllUsersAdmin() ([]user.User, error)
+	GetTopSpenders(limit int) ([]map[string]interface{}, error)
+	GetTopSellers(limit int) ([]map[string]interface{}, error)
+	GetTopLarpOverall(limit int) ([]map[string]interface{}, error)
 }
 
 type repository struct {
@@ -226,4 +229,69 @@ func (r *repository) GetAllUsersAdmin() ([]user.User, error) {
 	var users []user.User
 	err := r.db.Order("created_at DESC").Find(&users).Error
 	return users, err
+}
+
+func (r *repository) GetTopSpenders(limit int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var results []map[string]interface{}
+	
+	query := `
+		SELECT u.id, u.username, u.name, u.image, u.role, COALESCE(SUM(t.amount), 0) as total_amount
+		FROM users u
+		JOIN (
+			SELECT user_id as uid, amount FROM transactions WHERE status = 'completed' OR status = 'success'
+			UNION ALL
+			SELECT buyer_id as uid, amount FROM product_purchase_audits WHERE status = 'completed'
+		) t ON u.id = t.uid
+		GROUP BY u.id, u.username, u.name, u.image, u.role
+		ORDER BY total_amount DESC
+		LIMIT ?
+	`
+	err := r.db.Raw(query, limit).Scan(&results).Error
+	return results, err
+}
+
+func (r *repository) GetTopSellers(limit int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var results []map[string]interface{}
+	
+	query := `
+		SELECT u.id, u.username, u.name, u.image, u.role, COALESCE(SUM(t.amount), 0) as total_amount
+		FROM users u
+		JOIN product_purchase_audits t ON u.id = t.seller_id
+		WHERE t.status = 'completed'
+		GROUP BY u.id, u.username, u.name, u.image, u.role
+		ORDER BY total_amount DESC
+		LIMIT ?
+	`
+	err := r.db.Raw(query, limit).Scan(&results).Error
+	return results, err
+}
+
+func (r *repository) GetTopLarpOverall(limit int) ([]map[string]interface{}, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	var results []map[string]interface{}
+	
+	query := `
+		SELECT u.id, u.username, u.name, u.image, u.role, COALESCE(SUM(t.amount), 0) as total_amount
+		FROM users u
+		JOIN (
+			SELECT user_id as uid, amount FROM transactions WHERE status = 'completed' OR status = 'success'
+			UNION ALL
+			SELECT buyer_id as uid, amount FROM product_purchase_audits WHERE status = 'completed'
+			UNION ALL
+			SELECT seller_id as uid, amount FROM product_purchase_audits WHERE status = 'completed'
+		) t ON u.id = t.uid
+		GROUP BY u.id, u.username, u.name, u.image, u.role
+		ORDER BY total_amount DESC
+		LIMIT ?
+	`
+	err := r.db.Raw(query, limit).Scan(&results).Error
+	return results, err
 }

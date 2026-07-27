@@ -108,6 +108,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 		api.POST("/users/:id/follow", middleware.RateLimitMiddleware(cache.RDB, 50, 1*time.Hour), authHandler.ToggleFollow)
 		api.GET("/admin/users", authHandler.GetAllUsersAdmin)
 		api.PUT("/users/profile", middleware.RequireAuth(authService), authHandler.UpdateMyProfile)
+		api.GET("/users/top-larp", authHandler.GetTopLarp)
 
 		// Auth Adapter routes
 		adapter := api.Group("/auth/adapter")

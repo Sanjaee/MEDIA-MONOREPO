@@ -44,13 +44,19 @@ export function EditableProfileHeader({ user, isOwner }: EditableProfileHeaderPr
 
         <div className="flex flex-col justify-center gap-0.5">
           <div className="flex items-center gap-1.5">
-            {!user.isBanned && user.role && (
-              <span className={getRoleBadge(user.role)} style={{ transform: "scale(1.2)", transformOrigin: "left center" }} />
-            )}
-            <h1 className={`text-xl font-bold shadow-sm flex items-center gap-2 ${user.isBanned ? 'text-white' : getRoleNameClass(user.role || 'member')}`} style={{ textShadow: "1px 1px 1px #000" }}>
-              {user.name}
-              {isOwner && <span className="text-[#888] text-[10px] opacity-0 group-hover:opacity-100 transition">(Click to edit)</span>}
+            <h1 className="flex items-center gap-1 text-xl shadow-sm" style={{ textShadow: "1px 1px 1px #000" }}>
+              {!user.isBanned && user.role && (
+                <span className={getRoleBadge(user.role)} />
+              )}
+              <span className={`font-bold ${user.isBanned ? 'text-white' : getRoleNameClass(user.role || 'member')}`}>
+                {user.name}
+              </span>
             </h1>
+            {isOwner && (
+              <span className="text-[#888] text-[10px] opacity-0 group-hover:opacity-100 transition ml-2 whitespace-nowrap">
+                (Click to edit)
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-[#ccc] font-semibold mt-0.5" style={{ textShadow: "1px 1px 1px #000" }}>
             {user.isBanned ? "Banned" : getRoleDisplayName(user.role || 'member')}
