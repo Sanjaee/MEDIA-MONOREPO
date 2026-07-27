@@ -134,6 +134,47 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  loki:
+    image: grafana/loki:latest
+    container_name: media-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - backend
+    volumes:
+      - loki_data:/loki
+    # No ports exposed to host. Secure inside Docker network.
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: media-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    networks:
+      - backend
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: media-grafana
+    restart: unless-stopped
+    environment:
+      # SECURE THIS FOR PRODUCTION!
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    ports:
+      - "127.0.0.1:3001:3000" # Localhost only port for safe testing
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - backend
+    depends_on:
+      - loki
+
 networks:
   backend:
     driver: bridge
@@ -141,3 +182,5 @@ networks:
 volumes:
   postgres_prod_data:
   redis_prod_data:
+  loki_data:
+  grafana_data:
