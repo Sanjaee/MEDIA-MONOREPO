@@ -1089,9 +1089,9 @@ func (s *service) VerifyCryptoOrder(userID, orderID string) (*Transaction, strin
 }
 
 func (s *service) CreatePendingAdSlot(userID string, durationDays int) (*AdSlot, error) {
-	// First check if user already has an ad slot
+	// First check if user already has a pending ad slot
 	var existingAd AdSlot
-	if err := s.db.Where("user_id = ?", userID).Order("created_at desc").First(&existingAd).Error; err == nil {
+	if err := s.db.Where("user_id = ? AND status = ?", userID, "pending_payment").First(&existingAd).Error; err == nil {
 		existingAd.DurationDays = &durationDays
 		if err := s.db.Save(&existingAd).Error; err != nil {
 			return nil, err

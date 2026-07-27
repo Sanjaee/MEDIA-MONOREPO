@@ -75,15 +75,15 @@ export function AdsDashboard() {
   useEffect(() => {
     if (pendingAds.length === 0) return;
     const calculateTimeLeft = () => {
-      const createdAt = new Date(pendingAds[0].createdAt).getTime();
-      const deadline = createdAt + 24 * 60 * 60 * 1000;
+      const startTime = new Date(pendingAds[0].updatedAt || pendingAds[0].createdAt).getTime();
+      const deadline = startTime + 24 * 60 * 60 * 1000;
       const difference = deadline - new Date().getTime();
-      if (difference <= 0) return "Expired";
+      if (difference <= 0) return "Setup Expired";
       
       const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((difference / 1000 / 60) % 60);
       const seconds = Math.floor((difference / 1000) % 60);
-      return `${hours}h ${minutes}m ${seconds}s left`;
+      return `Setup expires in ${hours}h ${minutes}m ${seconds}s`;
     };
 
     setSetupTimeLeft(calculateTimeLeft());
@@ -416,7 +416,10 @@ export function AdsDashboard() {
           
           <div className="bg-card border rounded-xl p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Configure Slot #{pendingAds[0].id.slice(-6)}</h3>
+              <h3 className="text-lg font-semibold">
+                Configure Slot #{pendingAds[0].id.slice(-6)} 
+                <span className="text-muted-foreground text-sm font-normal ml-2">({pendingAds[0].durationDays || 1} Days Slot)</span>
+              </h3>
               {setupTimeLeft && (
                 <div className="bg-orange-500/10 text-orange-500 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
                   <span>⏱</span>
