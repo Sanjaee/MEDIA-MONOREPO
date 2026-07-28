@@ -136,6 +136,36 @@ func (c *Controller) GetReplies(ctx *gin.Context) {
 	})
 }
 
+func (c *Controller) HandlePinComment(ctx *gin.Context) {
+	commentID := ctx.Param("id")
+	userID := ctx.GetString("userID")
+
+	if userID == "" {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Pin bool `json:"pin"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := c.service.PinComment(ctx.Request.Context(), commentID, userID, req.Pin); err != nil {
+		if strings.Contains(err.Error(), "unauthorized") {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "pinned": req.Pin})
+}
+
 func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 	commentRoutes := router.Group("/comments")
 	{
@@ -143,5 +173,6 @@ func RegisterRoutes(router *gin.RouterGroup, controller *Controller) {
 		commentRoutes.GET("/post/:postId", controller.GetComments)
 		commentRoutes.GET("/:id/replies", controller.GetReplies)
 		commentRoutes.DELETE("/:id", controller.DeleteComment)
+		commentRoutes.PATCH("/:id/pin", controller.HandlePinComment)
 	}
 }

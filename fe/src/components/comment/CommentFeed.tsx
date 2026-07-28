@@ -9,11 +9,12 @@ import { useRef, useEffect } from "react";
 
 interface CommentFeedProps {
   postId: string;
+  postAuthorId?: string;
   hideHeader?: boolean;
   hideForm?: boolean;
 }
 
-export function CommentFeed({ postId, hideHeader = false, hideForm = false }: CommentFeedProps) {
+export function CommentFeed({ postId, postAuthorId, hideHeader = false, hideForm = false }: CommentFeedProps) {
   const {
     data,
     fetchNextPage,
@@ -55,7 +56,7 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
   }, [virtualItems, comments.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="w-full pb-20 flex flex-col h-full">
+    <div className="w-full flex flex-col h-full relative">
       {!hideHeader && (
         <>
           <div className="border-b-1 border-muted"></div>
@@ -65,7 +66,7 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
         </>
       )}
 
-      {!hideForm && <div className="shrink-0"><CommentForm postId={postId} /></div>}
+
 
       {status === "pending" ? (
         <div className="p-4 text-center text-muted-foreground">Loading comments...</div>
@@ -107,7 +108,12 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
                   {isLoaderRow ? (
                     <div className="p-4 text-center text-muted-foreground">Loading more...</div>
                   ) : (
-                    <CommentItem comment={comment} postId={postId} />
+                    <CommentItem 
+                      key={comment.id} 
+                      comment={comment} 
+                      postId={postId} 
+                      postAuthorId={postAuthorId} 
+                    />
                   )}
                 </div>
               );
@@ -115,6 +121,8 @@ export function CommentFeed({ postId, hideHeader = false, hideForm = false }: Co
           </div>
         </div>
       )}
+
+      {!hideForm && <div className="shrink-0 border-t sticky bottom-0 bg-background z-10"><CommentForm postId={postId} /></div>}
     </div>
   );
 }

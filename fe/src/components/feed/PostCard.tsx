@@ -650,7 +650,7 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 pt-2">
-              <CommentFeed postId={post.id} hideHeader hideForm />
+              <CommentFeed postId={post.id} postAuthorId={post.authorId} hideHeader hideForm />
             </div>
 
             <div className="p-3 border-t shrink-0 bg-background">

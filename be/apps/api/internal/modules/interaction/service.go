@@ -8,6 +8,7 @@ import (
 	"media-api/internal/modules/notification"
 	"media-api/internal/queue"
 	"media-api/internal/websocket"
+	"media-api/internal/worker"
 
 	"github.com/hibiken/asynq"
 )
@@ -100,6 +101,12 @@ func (s *service) ToggleCommentLike(ctx context.Context, userID, commentID strin
 
 	if liked && s.notifSv != nil && commentOwnerID != "" {
 		_ = s.notifSv.CreateCommentLikeNotification(commentOwnerID, userID, commentID, postID)
+	}
+
+	if queue.Client != nil {
+		if workerTask, err := worker.NewUpdateCommentScoreTask(commentID); err == nil {
+			queue.Client.Enqueue(workerTask)
+		}
 	}
 
 	if s.hub != nil {

@@ -60,7 +60,14 @@ export async function deleteCommentAction(commentId: string) {
 }
 
 export async function toggleCommentLikeAction(commentId: string) {
-  return fetchFromGo(`/comments/${commentId}/like`, {
+  return fetchFromGo(`/interactions/comments/${commentId}/like`, {
     method: 'POST',
+  });
+}
+
+export async function pinCommentAction(commentId: string, pin: boolean) {
+  return fetchFromGo(`/comments/${commentId}/pin`, {
+    method: 'PATCH',
+    body: JSON.stringify({ pin }),
   });
 }

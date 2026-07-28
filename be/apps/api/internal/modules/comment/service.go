@@ -9,6 +9,7 @@ import (
 	"media-api/internal/queue"
 	"media-api/internal/modules/notification"
 	"media-api/internal/websocket"
+	"media-api/internal/worker"
 
 	"github.com/hibiken/asynq"
 )
@@ -18,6 +19,7 @@ type Service interface {
 	DeleteComment(ctx context.Context, id string, userID string) error
 	GetCommentsByPostID(ctx context.Context, userID string, postID string, cursor string, limit int) ([]Comment, error)
 	GetRepliesByCommentID(ctx context.Context, userID string, parentID string, cursor string, limit int) ([]Comment, error)
+	PinComment(ctx context.Context, commentID string, userID string, pin bool) error
 }
 
 type service struct {
@@ -66,6 +68,18 @@ func (s *service) CreateComment(ctx context.Context, comment *Comment) error {
 		_, err2 := queue.Client.Enqueue(task2)
 		if err2 != nil {
 			log.Printf("Failed to enqueue task post:update_trending_score: %v", err2)
+		}
+
+		// Also initialize the comment score
+		if workerTask, err := worker.NewUpdateCommentScoreTask(comment.ID); err == nil {
+			queue.Client.Enqueue(workerTask)
+		}
+		
+		// If it's a reply, update parent comment score
+		if comment.ParentCommentID != nil && *comment.ParentCommentID != "" {
+			if parentTask, err := worker.NewUpdateCommentScoreTask(*comment.ParentCommentID); err == nil {
+				queue.Client.Enqueue(parentTask)
+			}
 		}
 	}
 
@@ -139,4 +153,32 @@ func (s *service) GetCommentsByPostID(ctx context.Context, userID string, postID
 
 func (s *service) GetRepliesByCommentID(ctx context.Context, userID string, parentID string, cursor string, limit int) ([]Comment, error) {
 	return s.repository.GetRepliesByCommentID(userID, parentID, cursor, limit)
+}
+
+func (s *service) PinComment(ctx context.Context, commentID string, userID string, pin bool) error {
+	comment, err := s.repository.FindByID(commentID)
+	if err != nil {
+		return err
+	}
+
+	postAuthorID, err := s.repository.GetPostAuthorID(comment.PostID)
+	if err != nil {
+		return err
+	}
+
+	if postAuthorID != userID {
+		return errors.New("unauthorized: only the post owner can pin comments")
+	}
+
+	if err := s.repository.PinComment(commentID, comment.PostID, pin); err != nil {
+		return err
+	}
+
+	if queue.Client != nil {
+		if workerTask, err := worker.NewUpdateCommentScoreTask(commentID); err == nil {
+			queue.Client.Enqueue(workerTask)
+		}
+	}
+
+	return nil
 }

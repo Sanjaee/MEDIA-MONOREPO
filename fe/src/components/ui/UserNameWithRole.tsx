@@ -25,7 +25,7 @@ export function UserNameWithRole({
   if (r) {
     return (
       <div className={`flex items-center gap-1 ${className} min-w-0`}>
-        <span className={getRoleBadge(r)} />
+        <span className={`${getRoleBadge(r)} shrink-0 whitespace-nowrap inline-block`} />
         <span className={`font-semibold truncate ${getRoleNameClass(r)}`}>
           {displayName || "—"}
         </span>

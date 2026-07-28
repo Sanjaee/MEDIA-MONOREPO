@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, ThumbsUp, Trash2 } from "lucide-react";
+import { MessageCircle, ThumbsUp, Trash2, Pin } from "lucide-react";
 import { toast } from "sonner";
 import { formatShortTime } from "@/utils/timeUtils";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSession } from "next-auth/react";
 import { useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { deleteCommentAction, getRepliesAction, toggleCommentLikeAction } from "@/actions/comment.actions";
+import { deleteCommentAction, getRepliesAction, toggleCommentLikeAction, pinCommentAction } from "@/actions/comment.actions";
 import { CommentForm } from "./CommentForm";
 import { UserNameWithRole } from "@/components/ui/UserNameWithRole";
 
@@ -29,9 +29,10 @@ interface CommentItemProps {
   isReply?: boolean;
   level?: number;
   autoExpand?: boolean;
+  postAuthorId?: string;
 }
 
-export function CommentItem({ comment, postId, isReply = false, level = 0, autoExpand = false }: CommentItemProps) {
+export function CommentItem({ comment, postId, isReply = false, level = 0, autoExpand = false, postAuthorId }: CommentItemProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -102,6 +103,7 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
   };
 
   const isOwner = session?.user?.id === comment.author.id;
+  const isPostOwner = session?.user?.id === postAuthorId;
 
   const { mutate: deleteComment, isPending: isDeleting } = useMutation({
     mutationFn: deleteCommentAction,
@@ -138,6 +140,19 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
     onError: (e) => {
       console.error(e);
       toast.error("Failed to delete comment");
+    }
+  });
+
+  const { mutate: pinComment, isPending: isPinning } = useMutation({
+    mutationFn: (pin: boolean) => pinCommentAction(comment.id, pin),
+    onSuccess: (_, pin) => {
+      // Invalidate the post comments query to refetch pinned state
+      queryClient.invalidateQueries({ queryKey: ["comments", postId] });
+      toast.success(pin ? "Comment pinned" : "Comment unpinned");
+    },
+    onError: (e) => {
+      console.error(e);
+      toast.error("Failed to pin comment");
     }
   });
 
@@ -189,6 +204,14 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
               <span className={`text-muted-foreground ${timeClass}`}>
                 {comment.createdAt ? formatShortTime(comment.createdAt) : ""}
               </span>
+              {comment.pinned && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <div className="flex items-center text-xs font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded gap-1">
+                    <Pin size={10} className="fill-amber-500 rotate-45" /> Pinned
+                  </div>
+                </>
+              )}
             </div>
             <Link href={`/${comment.author.username}`} className={`text-muted-foreground truncate ${timeClass}`}>
               @{comment.author.username}
@@ -206,7 +229,10 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
 
           <div className="flex items-center gap-2 mt-1 text-muted-foreground">
             <button
-              onClick={() => setIsReplying(!isReplying)}
+              onClick={() => {
+                setIsReplying(!isReplying);
+                if (!isReplying) setShowReplies(true);
+              }}
               className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded-md transition-colors text-[12px] font-medium"
             >
               <MessageCircle size={iconSize} />
@@ -221,20 +247,6 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
               <span className={isLiked ? "text-red-500" : ""}>{Math.max(0, likeCount) || 0}</span>
             </button>
           </div>
-
-          {isReplying && (
-            <div className="mt-3">
-              <CommentForm
-                postId={postId}
-                parentCommentId={comment.id}
-                onSuccess={() => {
-                  setIsReplying(false);
-                  setShowReplies(true);
-                }}
-                autoFocus
-              />
-            </div>
-          )}
 
           {comment.replyCount > 0 && !showReplies && (
             <button
@@ -290,6 +302,21 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
               </button>
             </div>
           )}
+
+          {isReplying && (
+            <div className={`relative mt-2 mb-2 ${level > 0 ? "ml-[32px]" : ""}`}>
+              <div className={`absolute ${level > 0 ? "left-[-48px] w-[48px]" : "left-[-16px] w-[16px]"} top-[-8px] h-[18px] border-l border-b border-border rounded-bl-xl`} />
+              <CommentForm
+                postId={postId}
+                parentCommentId={comment.id}
+                onSuccess={() => {
+                  setIsReplying(false);
+                  // Refresh replies silently if needed, already handled by CommentForm invalidateQueries
+                }}
+                autoFocus
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -298,8 +325,20 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
           onClick={() => setShowDeleteAlert(true)}
           disabled={isDeleting}
           className="absolute top-3 right-4 p-2 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-red-500 rounded-full hover:bg-red-500/10 transition-all"
+          title="Delete comment"
         >
           <Trash2 size={16} />
+        </button>
+      )}
+
+      {isPostOwner && !isReply && (
+        <button
+          onClick={() => pinComment(!comment.pinned)}
+          disabled={isPinning}
+          className={`absolute top-3 right-12 p-2 rounded-full transition-all opacity-0 group-hover:opacity-100 ${comment.pinned ? 'text-amber-500 bg-amber-500/10 opacity-100' : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10'}`}
+          title={comment.pinned ? "Unpin comment" : "Pin comment"}
+        >
+          <Pin size={16} className={comment.pinned ? "fill-amber-500" : ""} />
         </button>
       )}
 

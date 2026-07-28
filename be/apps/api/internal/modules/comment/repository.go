@@ -16,6 +16,7 @@ type Repository interface {
 	GetPostAuthorID(postID string) (string, error)
 	GetCommentAuthorID(commentID string) (string, error)
 	GetPostCommentCount(postID string) (int64, error)
+	PinComment(commentID string, postID string, pin bool) error
 }
 
 type repository struct {
@@ -55,7 +56,7 @@ func (r *repository) GetCommentsByPostID(userID string, postID string, cursor st
 
 	query := r.db.Preload("Author").
 		Where("post_id = ? AND parent_comment_id IS NULL", postID).
-		Order("created_at DESC, id DESC").
+		Order("pinned DESC, score DESC, created_at DESC, id DESC").
 		Limit(limit + 1)
 
 	if userID != "" {
@@ -80,7 +81,7 @@ func (r *repository) GetRepliesByCommentID(userID string, parentID string, curso
 
 	query := r.db.Preload("Author").
 		Where("parent_comment_id = ?", parentID).
-		Order("created_at DESC, id DESC").
+		Order("pinned DESC, score DESC, created_at DESC, id DESC").
 		Limit(limit + 1)
 
 	if userID != "" {
@@ -120,4 +121,17 @@ func (r *repository) GetPostCommentCount(postID string) (int64, error) {
 	var count int64
 	err := r.db.Model(&Comment{}).Where("post_id = ? AND parent_comment_id IS NULL AND deleted_at IS NULL", postID).Count(&count).Error
 	return count, err
+}
+
+func (r *repository) PinComment(commentID string, postID string, pin bool) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if pin {
+			// Unpin all other comments on this post first
+			if err := tx.Model(&Comment{}).Where("post_id = ?", postID).Update("pinned", false).Error; err != nil {
+				return err
+			}
+		}
+		// Pin or unpin the specific comment
+		return tx.Model(&Comment{}).Where("id = ?", commentID).Update("pinned", pin).Error
+	})
 }

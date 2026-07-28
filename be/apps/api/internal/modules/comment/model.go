@@ -15,6 +15,8 @@ type Comment struct {
 	Content         string     `gorm:"type:text;not null" json:"content"`
 	LikeCount       *int       `gorm:"type:integer;default:0" json:"likeCount"`
 	ReplyCount      *int       `gorm:"type:integer;default:0" json:"replyCount"`
+	Score           float64    `gorm:"type:double precision;default:0;index" json:"score"`
+	Pinned          bool       `gorm:"default:false;index" json:"pinned"`
 	CreatedAt       time.Time      `gorm:"autoCreateTime;type:timestamp" json:"createdAt"`
 	UpdatedAt       time.Time      `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"`

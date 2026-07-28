@@ -305,8 +305,8 @@ export function PhotoModal({ post, photoId }: { post: PostWithRelations, photoId
         </div>
         
         {/* Comments Section */}
-        <div className="flex-1 overflow-y-auto">
-          <CommentFeed postId={post.id} />
+        <div className="flex-1 overflow-y-auto px-4 py-2">
+          <CommentFeed postId={post.id} postAuthorId={post.author.id} />
         </div>
       </div>
 
