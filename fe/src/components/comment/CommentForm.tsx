@@ -66,6 +66,9 @@ export function CommentForm({ postId, parentCommentId, onSuccess, autoFocus }: C
       // Invalidate Next.js Server Cache (Detail Page)
       router.refresh();
 
+      // Hard reload as requested
+      window.location.reload();
+
       onSuccess?.();
     },
     onError: (error) => {

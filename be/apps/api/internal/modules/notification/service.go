@@ -14,6 +14,7 @@ import (
 
 type Service interface {
 	CreateLikeNotification(userID, actorID, postID string) error
+	CreateCommentLikeNotification(userID, actorID, commentID, postID string) error
 	CreateCommentNotification(userID, actorID, postID, commentText string) error
 	CreateRoleUpgradeNotification(userID, roleName string) error
 	CreateAdPaymentSuccessNotification(userID string) error
@@ -77,6 +78,63 @@ func (s *service) CreateLikeNotification(userID, actorID, postID string) error {
 		"actorUsername": actorUsername,
 		"actorImage":    actorImage,
 		"actionText":    "liked your post",
+		"message":       "",
+		"postId":        postID,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msg := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msg)
+
+	return nil
+}
+
+func (s *service) CreateCommentLikeNotification(userID, actorID, commentID, postID string) error {
+	// Don't notify if the user likes their own comment
+	if userID == actorID {
+		return nil
+	}
+
+	if err := checkNotificationRateLimit(userID, actorID, "COMMENT_LIKE"); err != nil {
+		return err
+	}
+
+	nType := "COMMENT_LIKE"
+	isRead := false
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  actorID,
+		Type:     &nType,
+		EntityID: &postID, // Store postID so frontend can redirect to the post!
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	actorDetails, _ := s.repo.GetActorDetails(actorID)
+	actorUsername := "System"
+	var actorImage interface{} = nil
+
+	if actorDetails != nil {
+		if username, ok := actorDetails["username"].(string); ok && username != "" {
+			actorUsername = username
+		}
+		actorImage = actorDetails["image"]
+	}
+
+	// Push via websocket
+	payload := map[string]interface{}{
+		"actorUsername": actorUsername,
+		"actorImage":    actorImage,
+		"actionText":    "liked your comment",
 		"message":       "",
 		"postId":        postID,
 	}

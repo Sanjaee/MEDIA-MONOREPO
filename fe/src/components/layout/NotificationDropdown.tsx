@@ -130,21 +130,26 @@ export function NotificationDropdown() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+                        <div className="flex flex-col flex-1 overflow-hidden min-w-0 justify-center">
                           <div className="flex justify-between items-start w-full">
-                            <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1">
+                            <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1.5">
                               <UserNameWithRole
                                 displayName={notif.type === 'PRODUCT_SALE' ? 'System' : (notif.actor?.username || "Someone")}
                                 role={notif.type === 'PRODUCT_SALE' ? 'admin' : notif.actor?.role}
                                 className="inline-flex"
                               />
-                              <span className="text-muted-foreground">{notif.type === 'PRODUCT_SALE' ? 'Product Sale' : notif.actionText}</span>
+                              <span className="text-muted-foreground inline-flex items-center gap-1">
+                                {notif.type === 'PRODUCT_SALE' ? 'Product Sale' :
+                                 notif.type === 'COMMENT' && notif.message ? `commented : ${notif.message}` : 
+                                 notif.type === 'COMMENT_LIKE' ? 'liked your comment' :
+                                 notif.actionText}
+                              </span>
                             </span>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
                               {formatShortTime(notif.timestamp)}
                             </span>
                           </div>
-                          {notif.message && (
+                          {notif.message && notif.type !== 'COMMENT' && (
                             <span className="text-sm text-muted-foreground line-clamp-5 mt-1">{notif.message}</span>
                           )}
                         </div>

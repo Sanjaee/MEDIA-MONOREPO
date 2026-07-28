@@ -62,6 +62,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
               role: (!n.actor?.username || n.actor?.username === "System") ? "admin" : (n.actor?.role || "user"),
           },
           actionText: n.type === "LIKE" ? "liked your post" 
+                    : n.type === "COMMENT_LIKE" ? "liked your comment"
                     : n.type === "SYSTEM" ? ((n.message?.includes("Digital Product") || n.message?.includes("Ad Slot")) ? "Payment Successful" : "Role Upgraded")
                     : n.type === "PRODUCT_SALE" ? "purchased your product"
                     : "commented",

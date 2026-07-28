@@ -93,13 +93,14 @@ func (s *service) ToggleBookmark(ctx context.Context, userID, postID string) (bo
 }
 
 func (s *service) ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, error) {
-	liked, count, _, err := s.repo.ToggleCommentLike(ctx, userID, commentID)
+	liked, count, commentOwnerID, postID, err := s.repo.ToggleCommentLike(ctx, userID, commentID)
 	if err != nil {
 		return liked, count, err
 	}
 
-	// Maybe add notification for comment like later
-	// if liked && s.notifSv != nil && commentOwnerID != "" { ... }
+	if liked && s.notifSv != nil && commentOwnerID != "" {
+		_ = s.notifSv.CreateCommentLikeNotification(commentOwnerID, userID, commentID, postID)
+	}
 
 	if s.hub != nil {
 		broadcastPayload, _ := json.Marshal(map[string]interface{}{

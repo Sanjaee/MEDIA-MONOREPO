@@ -12,7 +12,7 @@ import (
 type Repository interface {
 	ToggleLike(ctx context.Context, userID, postID string) (bool, int, string, error)
 	ToggleBookmark(ctx context.Context, userID, postID string) (bool, int, error)
-	ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, error)
+	ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, string, error)
 }
 
 type repository struct {
@@ -128,10 +128,11 @@ func (r *repository) ToggleBookmark(ctx context.Context, userID, postID string) 
 	return isBookmarked, newCount, err
 }
 
-func (r *repository) ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, error) {
+func (r *repository) ToggleCommentLike(ctx context.Context, userID, commentID string) (bool, int, string, string, error) {
 	var isLiked bool
 	var newCount int
 	var commentOwnerID string
+	var postID string
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var like CommentLike
@@ -165,18 +166,20 @@ func (r *repository) ToggleCommentLike(ctx context.Context, userID, commentID st
 			return err
 		}
 
-		// Fetch latest count and author
+		// Fetch latest count and author and postID
 		var comment struct {
 			LikeCount int
 			AuthorID  string
+			PostID    string
 		}
-		if err := tx.Table("comments").Select("like_count, author_id").Where("id = ?", commentID).Scan(&comment).Error; err == nil {
+		if err := tx.Table("comments").Select("like_count, author_id, post_id").Where("id = ?", commentID).Scan(&comment).Error; err == nil {
 			newCount = comment.LikeCount
 			commentOwnerID = comment.AuthorID
+			postID = comment.PostID
 		}
 
 		return nil
 	})
 
-	return isLiked, newCount, commentOwnerID, err
+	return isLiked, newCount, commentOwnerID, postID, err
 }
