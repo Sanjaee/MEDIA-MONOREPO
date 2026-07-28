@@ -61,6 +61,6 @@ func (r *repository) DeleteAllNotifications(userID string) error {
 
 func (r *repository) GetActorDetails(actorID string) (map[string]interface{}, error) {
 	var result map[string]interface{}
-	err := r.db.Table("users").Where("id = ?", actorID).Select("username, image").Take(&result).Error
+	err := r.db.Table("users").Where("id = ?", actorID).Select("username, image, role").Take(&result).Error
 	return result, err
 }

@@ -65,18 +65,21 @@ func (s *service) CreateLikeNotification(userID, actorID, postID string) error {
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
 	actorUsername := "System"
 	var actorImage interface{} = nil
+	var actorRole interface{} = nil
 
 	if actorDetails != nil {
 		if username, ok := actorDetails["username"].(string); ok && username != "" {
 			actorUsername = username
 		}
 		actorImage = actorDetails["image"]
+		actorRole = actorDetails["role"]
 	}
 
 	// Push via websocket
 	payload := map[string]interface{}{
 		"actorUsername": actorUsername,
 		"actorImage":    actorImage,
+		"actorRole":    actorRole,
 		"actionText":    "liked your post",
 		"message":       "",
 		"postId":        postID,
@@ -122,18 +125,21 @@ func (s *service) CreateCommentLikeNotification(userID, actorID, commentID, post
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
 	actorUsername := "System"
 	var actorImage interface{} = nil
+	var actorRole interface{} = nil
 
 	if actorDetails != nil {
 		if username, ok := actorDetails["username"].(string); ok && username != "" {
 			actorUsername = username
 		}
 		actorImage = actorDetails["image"]
+		actorRole = actorDetails["role"]
 	}
 
 	// Push via websocket
 	payload := map[string]interface{}{
 		"actorUsername": actorUsername,
 		"actorImage":    actorImage,
+		"actorRole":    actorRole,
 		"actionText":    "liked your comment",
 		"message":       "",
 		"postId":        postID,
@@ -180,18 +186,21 @@ func (s *service) CreateCommentNotification(userID, actorID, postID, commentText
 	actorDetails, _ := s.repo.GetActorDetails(actorID)
 	actorUsername := "System"
 	var actorImage interface{} = nil
+	var actorRole interface{} = nil
 
 	if actorDetails != nil {
 		if username, ok := actorDetails["username"].(string); ok && username != "" {
 			actorUsername = username
 		}
 		actorImage = actorDetails["image"]
+		actorRole = actorDetails["role"]
 	}
 
 	// Push via websocket
 	payload := map[string]interface{}{
 		"actorUsername": actorUsername,
 		"actorImage":    actorImage,
+		"actorRole":    actorRole,
 		"actionText":    "commented",
 		"message":       commentText,
 		"postId":        postID,
@@ -342,6 +351,7 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 	
 	actorUsername := "System"
 	var actorImage interface{} = nil
+	var actorRole interface{} = nil
 	message := buyerUsername + " purchased your product!"
 	
 	n := &Notification{
@@ -369,6 +379,7 @@ func (s *service) CreateProductSaleNotification(userID, actorID, postID string, 
 		"actionText":    "Product Sale", // Add actionText
 		"actorUsername": actorUsername, // Add actorUsername
 		"actorImage":    actorImage,
+		"actorRole":    actorRole,
 		"isRead":        false,
 		"createdAt":     n.CreatedAt,
 		"amount":        amount,

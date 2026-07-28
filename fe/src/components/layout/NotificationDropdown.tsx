@@ -19,6 +19,7 @@ export function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, clearNotifications, deleteNotification } = useWebSocket();
   const router = useRouter();
   const [parentRef, setParentRef] = useState<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
 
   const virtualizer = useVirtualizer({
     count: notifications.length,
@@ -51,7 +52,13 @@ export function NotificationDropdown() {
   };
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && markAsRead()}>
+    <DropdownMenu 
+      open={open} 
+      onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (newOpen) markAsRead();
+      }}
+    >
       <DropdownMenuTrigger className="relative flex items-center justify-center rounded-full w-10 h-10 hover:bg-muted/50 focus:outline-none">
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -111,6 +118,7 @@ export function NotificationDropdown() {
                       onClick={(e) => {
                         e.preventDefault();
                         if (notif.postId) {
+                          setOpen(false);
                           setTimeout(() => {
                             router.push(`/post/${notif.postId}`);
                           }, 100);
@@ -132,25 +140,25 @@ export function NotificationDropdown() {
                         </div>
                         <div className="flex flex-col flex-1 overflow-hidden min-w-0 justify-center">
                           <div className="flex justify-between items-start w-full">
-                            <span className="text-sm leading-tight pr-2 flex items-center flex-wrap gap-1.5">
+                            <div className="flex flex-col gap-0.5 pr-2 w-full">
                               <UserNameWithRole
                                 displayName={notif.type === 'PRODUCT_SALE' ? 'System' : (notif.actor?.username || "Someone")}
                                 role={notif.type === 'PRODUCT_SALE' ? 'admin' : notif.actor?.role}
-                                className="inline-flex"
+                                className="inline-flex font-semibold text-sm"
                               />
-                              <span className="text-muted-foreground inline-flex items-center gap-1">
+                              <span className="text-sm text-muted-foreground line-clamp-3">
                                 {notif.type === 'PRODUCT_SALE' ? 'Product Sale' :
                                  notif.type === 'COMMENT' && notif.message ? `commented : ${notif.message}` : 
                                  notif.type === 'COMMENT_LIKE' ? 'liked your comment' :
                                  notif.actionText}
                               </span>
-                            </span>
+                            </div>
                             <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 mt-0.5">
                               {formatShortTime(notif.timestamp)}
                             </span>
                           </div>
                           {notif.message && notif.type !== 'COMMENT' && (
-                            <span className="text-sm text-muted-foreground line-clamp-5 mt-1">{notif.message}</span>
+                            <span className="text-sm text-muted-foreground line-clamp-3 mt-1">{notif.message}</span>
                           )}
                         </div>
                         <div className="flex-shrink-0 flex items-start">
