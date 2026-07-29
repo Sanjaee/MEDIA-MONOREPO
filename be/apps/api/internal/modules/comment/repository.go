@@ -1,6 +1,7 @@
 package comment
 
 import (
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -66,9 +67,14 @@ func (r *repository) GetCommentsByPostID(userID string, postID string, cursor st
 	}
 
 	if cursor != "" {
-		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+		offset, err := strconv.Atoi(cursor)
 		if err == nil {
-			query = query.Where("created_at < ?", cursorTime)
+			query = query.Offset(offset)
+		} else {
+			cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+			if err == nil {
+				query = query.Where("created_at < ?", cursorTime)
+			}
 		}
 	}
 
@@ -91,9 +97,14 @@ func (r *repository) GetRepliesByCommentID(userID string, parentID string, curso
 	}
 
 	if cursor != "" {
-		cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+		offset, err := strconv.Atoi(cursor)
 		if err == nil {
-			query = query.Where("created_at < ?", cursorTime)
+			query = query.Offset(offset)
+		} else {
+			cursorTime, err := time.Parse(time.RFC3339Nano, cursor)
+			if err == nil {
+				query = query.Where("created_at < ?", cursorTime)
+			}
 		}
 	}
 

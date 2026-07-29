@@ -28,6 +28,7 @@ export function NavbarSearch() {
     e.preventDefault()
     if (query.trim()) {
       router.push(`/search?q=${encodeURIComponent(query)}`)
+      window.scrollTo(0, 0)
       setIsFocused(false)
     }
   }
@@ -69,6 +70,7 @@ export function NavbarSearch() {
                       const contentStr = result.content ? result.content.substring(0, 50) : query;
                       setQuery(contentStr); 
                       router.push(`/search?q=${encodeURIComponent(contentStr)}`);
+                      window.scrollTo(0, 0);
                     }}
                   >
                     <Search className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />

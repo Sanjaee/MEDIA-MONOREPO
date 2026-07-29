@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -99,7 +98,11 @@ func (c *Controller) GetComments(ctx *gin.Context) {
 
 	var nextCursor *string
 	if len(comments) > limit {
-		nc := comments[limit].CreatedAt.Format(time.RFC3339Nano)
+		offset := 0
+		if cursor != "" {
+			offset, _ = strconv.Atoi(cursor)
+		}
+		nc := strconv.Itoa(offset + limit)
 		nextCursor = &nc
 		comments = comments[:limit]
 	}
@@ -125,7 +128,11 @@ func (c *Controller) GetReplies(ctx *gin.Context) {
 
 	var nextCursor *string
 	if len(comments) > limit {
-		nc := comments[limit].CreatedAt.Format(time.RFC3339Nano)
+		offset := 0
+		if cursor != "" {
+			offset, _ = strconv.Atoi(cursor)
+		}
+		nc := strconv.Itoa(offset + limit)
 		nextCursor = &nc
 		comments = comments[:limit]
 	}

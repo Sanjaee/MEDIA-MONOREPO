@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { SearchFeed } from "@/components/feed/SearchFeed";
 import { UserSearchFeed } from "@/components/feed/UserSearchFeed";
@@ -13,6 +13,11 @@ interface SearchTabsWrapperProps {
 
 export function SearchTabsWrapper({ q, initialData, initialUsers }: SearchTabsWrapperProps) {
   const [activeTab, setActiveTab] = useState<"posts" | "users">("posts");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [q]);
+
 
   return (
     <div className="flex flex-col w-full">

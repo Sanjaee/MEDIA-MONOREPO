@@ -60,7 +60,7 @@ export async function deleteCommentAction(commentId: string) {
 }
 
 export async function toggleCommentLikeAction(commentId: string) {
-  return fetchFromGo(`/interactions/comments/${commentId}/like`, {
+  return fetchFromGo(`/comments/${commentId}/like`, {
     method: 'POST',
   });
 }
