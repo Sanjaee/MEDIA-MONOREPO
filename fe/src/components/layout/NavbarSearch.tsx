@@ -66,14 +66,14 @@ export function NavbarSearch() {
                     key={result.id}
                     className="flex items-center gap-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition" 
                     onClick={() => { 
-                      const contentStr = result.content || "";
-                      setQuery(contentStr.substring(0, 50)); 
+                      const contentStr = result.content ? result.content.substring(0, 50) : query;
+                      setQuery(contentStr); 
                       router.push(`/search?q=${encodeURIComponent(contentStr)}`);
                     }}
                   >
                     <Search className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex flex-col overflow-hidden">
-                      <span className="text-sm font-medium line-clamp-1">{result.content}</span>
+                      <span className="text-sm font-medium line-clamp-1">{result.content || `Match found by @${result.author.username}`}</span>
                       <span className="text-xs text-muted-foreground">@{result.author.username}</span>
                     </div>
                   </div>

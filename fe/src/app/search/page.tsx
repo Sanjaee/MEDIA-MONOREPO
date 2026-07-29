@@ -1,5 +1,6 @@
 import { getSearchFeedAction } from "@/actions/feed.actions";
-import { SearchFeed } from "@/components/feed/SearchFeed";
+import { searchUsersAction } from "@/actions/user.actions";
+import { SearchTabsWrapper } from "@/components/search/SearchTabsWrapper";
 import { Search } from "lucide-react";
 
 export const revalidate = 0; // Disable caching
@@ -13,6 +14,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const q = resolvedParams.q || "";
   
   const initialData = await getSearchFeedAction({ q, limit: 10 });
+  const initialUsers = await searchUsersAction(q);
 
   return (
     <main className="flex w-full max-w-2xl flex-col border-x min-h-screen">
@@ -20,7 +22,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <Search className="w-5 h-5 text-primary" />
         <h1 className="text-xl font-bold">Search Results</h1>
       </div>
-      <SearchFeed q={q} initialData={initialData} />
+
+      <SearchTabsWrapper 
+        q={q} 
+        initialData={initialData} 
+        initialUsers={initialUsers} 
+      />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, ThumbsUp, Trash2, Pin } from "lucide-react";
@@ -41,6 +41,16 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [isLiked, setIsLiked] = useState(comment.hasLiked ?? false);
   const [likeCount, setLikeCount] = useState(comment.likeCount ?? 0);
+
+  useEffect(() => {
+    const handleOpenReply = (e: any) => {
+      if (e.detail !== comment.id) {
+        setIsReplying(false);
+      }
+    };
+    window.addEventListener("open-reply", handleOpenReply);
+    return () => window.removeEventListener("open-reply", handleOpenReply);
+  }, [comment.id]);
 
   const [isLiking, setIsLiking] = useState(false);
   const clickCountRef = useRef(0);
@@ -230,8 +240,12 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
           <div className="flex items-center gap-2 mt-1 text-muted-foreground">
             <button
               onClick={() => {
-                setIsReplying(!isReplying);
-                if (!isReplying) setShowReplies(true);
+                const newValue = !isReplying;
+                setIsReplying(newValue);
+                if (newValue) {
+                  window.dispatchEvent(new CustomEvent("open-reply", { detail: comment.id }));
+                  setShowReplies(true);
+                }
               }}
               className="flex items-center gap-2 py-1.5 px-2 hover:bg-muted/50 rounded-md transition-colors text-[12px] font-medium"
             >

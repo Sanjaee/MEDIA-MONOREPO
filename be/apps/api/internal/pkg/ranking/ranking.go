@@ -25,38 +25,37 @@ func Score(c Comment) float64 {
 		ageHours = 0
 	}
 
-	// 1. Hitung Poin Interaksi (Base Points)
-	// Kita berikan modal 1.0 poin agar komentar tanpa interaksi tidak bernilai 0
-	points := 1.0 + (float64(c.LikeCount) * 2.0) + (float64(c.ReplyCount) * 3.5) + (float64(c.ReactionCount) * 1.5) + (float64(c.AuthorKarma) * 0.5)
+	// 1. Hitung Poin Interaksi (Engagement)
+	// Reply berbobot jauh lebih besar karena menandakan diskusi (8 poin)
+	engagement := 
+		(float64(c.LikeCount) * 2.0) + 
+		(float64(c.ReplyCount) * 8.0) + 
+		(float64(c.ReactionCount) * 2.0)
 
 	// 2. Kualitas Konten
-	quality := 0.0
 	if c.HasImage {
-		quality += 1.0
+		engagement += 2.0
 	}
 	if c.HasMention {
-		quality += 0.5
+		engagement += 0.5
 	}
 	if len(c.Content) > 100 {
-		quality += 1.0
+		engagement += 2.0
 	}
 	if len(c.Content) < 5 {
-		quality -= 0.5 // Penalti wajar untuk komentar terlalu pendek
+		engagement -= 0.5 // Penalti wajar untuk komentar terlalu pendek
 	}
 
-	totalPoints := points + quality
-	if totalPoints < 0.1 {
-		totalPoints = 0.1 // Hindari nilai poin negatif atau 0
-	}
+	// 3. Reputasi Pembuat (Author Karma)
+	engagement += math.Log1p(float64(c.AuthorKarma))
 
-	// 3. Hacker News Gravity Algorithm: Score = Points / (Age + 2)^Gravity
-	// Gravity 1.2 sangat cocok untuk Social Media (membuat komentar lawas tapi ramai tetap awet di atas komentar baru yg sepi)
-	gravity := 1.2
-	score := totalPoints / math.Pow(ageHours + 2.0, gravity)
+	// 4. Kalkulasi Akhir: Engagement dikurangi Age Penalty yang ringan (Akar Kuadrat Usia)
+	// Dengan ini, komentar yang ramai akan tetap berada di atas walau usianya sudah berhari-hari.
+	score := engagement - math.Sqrt(ageHours)
 
-	// 4. Pin diutamakan
+	// 5. Pin diutamakan paling atas
 	if c.Pinned {
-		score += 10000.0
+		score += 100000.0
 	}
 
 	return score
