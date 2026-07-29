@@ -107,6 +107,8 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 		api.GET("/users/search", authHandler.SearchUsers)
 		api.POST("/users/:id/follow", middleware.RateLimitMiddleware(cache.RDB, 50, 1*time.Hour), authHandler.ToggleFollow)
 		api.GET("/admin/users", authHandler.GetAllUsersAdmin)
+		api.POST("/admin/users/:id/ban", authHandler.BanUser)
+		api.POST("/admin/users/:id/unban", authHandler.UnbanUser)
 		api.PUT("/users/profile", middleware.RequireAuth(authService), authHandler.UpdateMyProfile)
 		api.GET("/users/top-larp", authHandler.GetTopLarp)
 

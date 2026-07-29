@@ -18,6 +18,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         session.user.role = (user as any).role || (user as any).Role || "member";
         // @ts-ignore
         session.user.username = (user as any).username || (user as any).Username;
+        // @ts-ignore
+        session.user.isBanned = (user as any).is_banned || false;
+        // @ts-ignore
+        session.user.bannedUntil = (user as any).banned_until;
+        // @ts-ignore
+        session.user.banReason = (user as any).ban_reason;
 
         // Sign a JWT for the backend
         const token = await new SignJWT({

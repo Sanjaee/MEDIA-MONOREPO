@@ -17,6 +17,8 @@ type Service interface {
 	CreateCommentLikeNotification(userID, actorID, commentID, postID string) error
 	CreateCommentNotification(userID, actorID, postID, commentText string) error
 	CreateRoleUpgradeNotification(userID, roleName string) error
+	CreateRoleExpiringSoonNotification(userID, roleName string) error
+	CreateRoleExpiredNotification(userID, roleName string) error
 	CreateAdPaymentSuccessNotification(userID string) error
 	CreateProductSaleNotification(userID, actorID, postID string, amount int) error
 	CreateProductPaymentSuccessNotification(userID string, postID string) error
@@ -268,6 +270,78 @@ func (s *service) CreateRoleUpgradeNotification(userID, roleName string) error {
 	}
 	_ = websocket.PublishToRedis(msgRoleWs)
 
+	return nil
+}
+
+func (s *service) CreateRoleExpiringSoonNotification(userID, roleName string) error {
+	nType := "SYSTEM"
+	isRead := false
+	message := "Your " + roleName + " premium role will expire in 3 days. Please renew to keep your benefits."
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  userID, // System or self
+		Type:     &nType,
+		Message:  &message,
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Role Expiring Soon",
+		"message":       message,
+		"postId":        "",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
+	return nil
+}
+
+func (s *service) CreateRoleExpiredNotification(userID, roleName string) error {
+	nType := "SYSTEM"
+	isRead := false
+	message := "Your " + roleName + " premium role has expired. Your account has been reverted to a standard member."
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  userID, // System or self
+		Type:     &nType,
+		Message:  &message,
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]interface{}{
+		"actorUsername": "System",
+		"actorImage":    nil,
+		"actionText":    "Role Expired",
+		"message":       message,
+		"postId":        "",
+	}
+	payloadBytes, _ := json.Marshal(payload)
+	
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
 	return nil
 }
 

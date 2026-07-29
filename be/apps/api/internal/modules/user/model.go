@@ -17,6 +17,8 @@ type User struct {
 	IsBanned      *bool      `gorm:"type:boolean;default:false" json:"is_banned,omitempty"`
 	BannedUntil   *time.Time `gorm:"type:timestamp" json:"banned_until,omitempty"`
 	BanReason     *string    `gorm:"type:text" json:"ban_reason,omitempty"`
+	RoleExpiredAt *time.Time `gorm:"type:timestamp" json:"role_expired_at,omitempty"`
+	RoleExpiringNotified *bool `gorm:"type:boolean;default:false" json:"role_expiring_notified,omitempty"`
 	CreatedAt     time.Time  `gorm:"autoCreateTime;type:timestamp" json:"createdAt,omitempty"`
 	UpdatedAt     time.Time  `gorm:"autoUpdateTime;type:timestamp" json:"updatedAt,omitempty"`
 }

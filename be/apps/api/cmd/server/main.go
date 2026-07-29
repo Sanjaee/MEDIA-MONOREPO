@@ -2,11 +2,14 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"media-api/internal/cache"
 	"media-api/internal/config"
 	"media-api/internal/database"
 	"media-api/internal/modules/post"
+	"media-api/internal/modules/notification"
+	"media-api/internal/modules/user"
 	"media-api/internal/queue"
 	"media-api/internal/routes"
 	"media-api/internal/storage"
@@ -48,6 +51,43 @@ func main() {
 
 	// 5. Start Asynq Server (Worker) in a goroutine
 	go queue.StartServer(cfg.RedisURL)
+
+	// 5.5 Start background role expiration worker
+	go func() {
+		notificationRepo := notification.NewRepository(database.DB)
+		notifService := notification.NewService(notificationRepo)
+
+		for {
+			now := time.Now()
+			
+			// 1. Notify users expiring in <= 3 days
+			in3Days := now.AddDate(0, 0, 3)
+			var expiringUsers []user.User
+			database.DB.Where("role_expired_at IS NOT NULL AND role_expired_at > ? AND role_expired_at < ? AND role_expiring_notified = ?", now, in3Days, false).Find(&expiringUsers)
+			for _, u := range expiringUsers {
+				if u.Role != nil {
+					_ = notifService.CreateRoleExpiringSoonNotification(u.ID, *u.Role)
+				}
+				database.DB.Model(&u).Update("role_expiring_notified", true)
+			}
+
+			// 2. Expire users and notify
+			var expiredUsers []user.User
+			database.DB.Where("role_expired_at IS NOT NULL AND role_expired_at < ?", now).Find(&expiredUsers)
+			for _, u := range expiredUsers {
+				if u.Role != nil {
+					_ = notifService.CreateRoleExpiredNotification(u.ID, *u.Role)
+				}
+				database.DB.Model(&u).Updates(map[string]interface{}{
+					"role": "member",
+					"role_expired_at": nil,
+					"role_expiring_notified": false,
+				})
+			}
+			
+			time.Sleep(1 * time.Hour)
+		}
+	}()
 
 	// 6. Setup router
 	r := routes.SetupRouter(database.DB, hub, store)

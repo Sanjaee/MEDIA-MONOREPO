@@ -262,6 +262,77 @@ func (h *Handler) GetAllUsersAdmin(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
+type BanUserRequest struct {
+	Reason       string `json:"reason" binding:"required"`
+	DurationDays int    `json:"duration_days"`
+}
+
+func (h *Handler) BanUser(c *gin.Context) {
+	adminUserID := c.GetString("userID")
+	if adminUserID == "" {
+		adminUserID = c.GetHeader("X-User-Id")
+	}
+
+	if adminUserID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	targetUserID := c.Param("id")
+	if targetUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target user id is required"})
+		return
+	}
+
+	var req BanUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.service.BanUser(adminUserID, targetUserID, req.Reason, req.DurationDays)
+	if err != nil {
+		if err.Error() == "forbidden: owner access required" || err.Error() == "unauthorized" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (h *Handler) UnbanUser(c *gin.Context) {
+	adminUserID := c.GetString("userID")
+	if adminUserID == "" {
+		adminUserID = c.GetHeader("X-User-Id")
+	}
+
+	if adminUserID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	targetUserID := c.Param("id")
+	if targetUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "target user id is required"})
+		return
+	}
+
+	err := h.service.UnbanUser(adminUserID, targetUserID)
+	if err != nil {
+		if err.Error() == "forbidden: owner access required" || err.Error() == "unauthorized" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 func (h *Handler) UpdateMyProfile(c *gin.Context) {
 	userID := c.GetString("userID")
 	if userID == "" {

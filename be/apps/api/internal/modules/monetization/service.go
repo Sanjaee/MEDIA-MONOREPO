@@ -864,8 +864,9 @@ func (s *service) HandleCryptoWebhook(payload []byte) error {
 			}
 			cache.DeletePattern(context.Background(), "feed:*")
 		} else if tx.ItemType == "role" {
-			// Upgrade User Role
-			s.db.Exec("UPDATE users SET role = ? WHERE id = ?", tx.ItemID, tx.UserID)
+			// Upgrade User Role for 1 month
+			expiration := time.Now().AddDate(0, 1, 0)
+			s.db.Exec("UPDATE users SET role = ?, role_expired_at = ?, role_expiring_notified = false WHERE id = ?", tx.ItemID, expiration, tx.UserID)
 			cache.DeletePattern(context.Background(), "feed:*")
 			
 			// Send Notification

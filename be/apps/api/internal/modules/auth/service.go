@@ -37,6 +37,8 @@ type Service interface {
 	GetTopSpenders(limit int) ([]map[string]interface{}, error)
 	GetTopSellers(limit int) ([]map[string]interface{}, error)
 	GetTopLarpOverall(limit int) ([]map[string]interface{}, error)
+	BanUser(adminUserID, targetUserID string, reason string, durationDays int) error
+	UnbanUser(adminUserID, targetUserID string) error
 
 	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*jwt.RegisteredClaims, error)
@@ -138,6 +140,59 @@ func (s *service) LinkAccount(a *user.Account) (*user.Account, error) {
 		return nil, err
 	}
 	return a, nil
+}
+
+func (s *service) BanUser(adminUserID, targetUserID string, reason string, durationDays int) error {
+	admin, err := s.repo.GetUserByID(adminUserID)
+	if err != nil || admin == nil {
+		return fmt.Errorf("unauthorized")
+	}
+
+	if admin.Role == nil || *admin.Role != "owner" {
+		return fmt.Errorf("forbidden: owner access required")
+	}
+
+	target, err := s.repo.GetUserByID(targetUserID)
+	if err != nil || target == nil {
+		return fmt.Errorf("target user not found")
+	}
+
+	isBanned := true
+	target.IsBanned = &isBanned
+	target.BanReason = &reason
+	
+	if durationDays > 0 {
+		bannedUntil := time.Now().AddDate(0, 0, durationDays)
+		target.BannedUntil = &bannedUntil
+	} else {
+		// Permanent ban
+		target.BannedUntil = nil
+	}
+
+	return s.repo.UpdateUser(target)
+}
+
+func (s *service) UnbanUser(adminUserID, targetUserID string) error {
+	admin, err := s.repo.GetUserByID(adminUserID)
+	if err != nil || admin == nil {
+		return fmt.Errorf("unauthorized")
+	}
+
+	if admin.Role == nil || *admin.Role != "owner" {
+		return fmt.Errorf("forbidden: owner access required")
+	}
+
+	target, err := s.repo.GetUserByID(targetUserID)
+	if err != nil || target == nil {
+		return fmt.Errorf("target user not found")
+	}
+
+	isBanned := false
+	target.IsBanned = &isBanned
+	target.BanReason = nil
+	target.BannedUntil = nil
+
+	return s.repo.UpdateUser(target)
 }
 
 func (s *service) CreateSession(session *user.Session) (*user.Session, error) {
