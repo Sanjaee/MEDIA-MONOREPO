@@ -28,6 +28,8 @@ export function CommentFeed({ postId, postAuthorId, hideHeader = false, hideForm
     },
     initialPageParam: null as Date | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const comments = data?.pages.flatMap(page => page.comments) || [];

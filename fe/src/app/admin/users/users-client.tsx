@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,11 +61,19 @@ function UserActionsCell({ row, targetIsOwner }: { row: any; targetIsOwner: bool
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-8 w-8 p-0 text-neutral-400 hover:text-neutral-200 hover:bg-[#1a1a1a]">
+        <DropdownMenuTrigger 
+          render={
+            <Button
+              variant="ghost"
+              className="flex size-8 text-muted-foreground data-[state=open]:bg-muted hover:bg-muted/50"
+              size="icon"
+            />
+          }
+        >
+          <MoreVertical className="size-4" />
           <span className="sr-only">Open menu</span>
-          <MoreVertical className="h-4 w-4" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px] bg-[#1a1a1a] border-[#2b2b2b] text-neutral-200">
+        <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-[#2b2b2b]" />
@@ -127,20 +136,24 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
       {
         id: "select",
         header: ({ table }) => (
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-            className="border-neutral-600 data-[state=checked]:bg-neutral-100 data-[state=checked]:text-neutral-900"
-          />
+          <div className="flex items-center justify-center pl-2">
+            <Checkbox
+              checked={table.getIsAllPageRowsSelected()}
+              onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+              aria-label="Select all"
+              className="rounded-[4px] border-muted-foreground/40"
+            />
+          </div>
         ),
         cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label="Select row"
-            className="border-neutral-600 data-[state=checked]:bg-neutral-100 data-[state=checked]:text-neutral-900"
-          />
+          <div className="flex items-center justify-center pl-2">
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label="Select row"
+              className="rounded-[4px] border-muted-foreground/40"
+            />
+          </div>
         ),
         enableSorting: false,
         enableHiding: false,
@@ -155,13 +168,13 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
           const avatarUrl = row.original.image || row.original.avatar_url;
           return (
             <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9 border border-[#2b2b2b]">
+              <Avatar className="h-9 w-9 border border-border/40">
                 <AvatarImage src={avatarUrl || ""} alt={name} />
-                <AvatarFallback className="bg-neutral-800 text-xs text-neutral-300">{initials}</AvatarFallback>
+                <AvatarFallback className="bg-muted text-xs text-muted-foreground">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="font-medium text-neutral-200">{name}</span>
-                <span className="text-xs text-neutral-500">{row.original.email}</span>
+                <span className="font-semibold text-foreground hover:no-underline">{name}</span>
+                <span className="text-xs text-muted-foreground">{row.original.email}</span>
               </div>
             </div>
           );
@@ -172,7 +185,11 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
         header: "Role",
         cell: (info) => {
           const role = info.getValue() as string;
-          return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${role === 'owner' ? 'bg-neutral-200 text-neutral-900' : 'bg-neutral-800/80 text-neutral-300 border border-neutral-700/50'}`}>{role === 'user' ? 'Member' : role}</span>;
+          return (
+            <Badge variant="outline" className={`rounded-full px-2.5 py-0.5 text-xs font-normal capitalize bg-transparent ${role === 'owner' ? 'border-primary/50 text-primary' : 'border-muted-foreground/30 text-muted-foreground'}`}>
+              {role === 'user' ? 'Member' : role}
+            </Badge>
+          );
         },
       },
       {
@@ -181,14 +198,15 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
         cell: (info) => {
           const isVerified = info.getValue() as boolean;
           return isVerified ? (
-             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
-               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-               Verified
-             </span>
+            <Badge variant="outline" className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-normal text-muted-foreground bg-transparent border-muted-foreground/30">
+              <div className="size-2 rounded-full bg-green-500" />
+              Verified
+            </Badge>
           ) : (
-             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium bg-transparent text-neutral-400 border border-neutral-700/50">
-               Unverified
-             </span>
+            <Badge variant="outline" className="flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-normal text-muted-foreground bg-transparent border-muted-foreground/30">
+              <div className="size-2 rounded-full bg-muted-foreground" />
+              Unverified
+            </Badge>
           );
         },
       },
@@ -214,7 +232,11 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
           
           if (!isOwner) return null;
 
-          return <UserActionsCell row={row} targetIsOwner={targetIsOwner} />;
+          return (
+            <div className="flex justify-end pr-2">
+              <UserActionsCell row={row} targetIsOwner={targetIsOwner} />
+            </div>
+          );
         },
       },
     ],
@@ -249,7 +271,7 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search users..."
-            className="pl-9 bg-[#1c1c1c] border-[#2b2b2b] focus-visible:ring-1 focus-visible:ring-neutral-700"
+            className="pl-9 bg-card/50 border-border/40 backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-ring shadow-sm"
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
           />
@@ -257,15 +279,15 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
       </div>
 
       <div 
-        className="rounded-xl border border-[#2b2b2b] bg-[#141414] overflow-hidden"
+        className="overflow-hidden rounded-xl border border-border/40 bg-card/50 shadow-sm backdrop-blur-sm"
       >
         <div className="h-[600px] overflow-auto relative" ref={parentRef}>
           <Table>
-            <TableHeader className="sticky top-0 bg-[#1c1c1c] z-10 border-b border-[#2b2b2b]">
+            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10">
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-none hover:bg-transparent">
+                <TableRow key={headerGroup.id} className="border-b border-border/40 hover:bg-transparent">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="h-12 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
+                    <TableHead key={header.id} className="h-12 font-semibold text-muted-foreground/80">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -280,7 +302,7 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center text-neutral-400">
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
                     No users found.
                   </TableCell>
                 </TableRow>
@@ -297,10 +319,10 @@ export function UsersClient({ initialData }: { initialData: AdminUserRow[] }) {
                         key={row.id}
                         data-index={virtualRow.index}
                         ref={virtualizer.measureElement}
-                        className="border-b border-[#2b2b2b] hover:bg-[#1a1a1a] transition-colors"
+                        className="border-b border-border/40 hover:bg-muted/30 transition-colors"
                       >
                         {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className="py-4 font-medium text-neutral-200">
+                          <TableCell key={cell.id} className="py-3 font-medium text-foreground">
                             {flexRender(
                               cell.column.columnDef.cell,
                               cell.getContext()

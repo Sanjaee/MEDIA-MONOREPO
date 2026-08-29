@@ -180,6 +180,8 @@ export function CommentItem({ comment, postId, isReply = false, level = 0, autoE
     initialPageParam: null as Date | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
     enabled: showReplies,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const replies = repliesData?.pages.flatMap(page => page.replies) || [];
