@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 
 const API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080/api";
 
-export type FriendStatus = "none" | "pending" | "accepted";
+export type FriendStatus = "none" | "pending" | "accepted" | "incoming_request";
 
 async function authedFetch(endpoint: string, options: RequestInit = {}) {
   const session = await auth();

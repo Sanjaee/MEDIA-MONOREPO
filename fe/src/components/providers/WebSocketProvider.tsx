@@ -8,6 +8,7 @@ import { getNotificationsAction, markAllNotificationsAsReadAction } from "@/acti
 
 export type Notification = {
   id?: string;
+  actorId?: string;
   actor?: {
     username?: string;
     image?: string;
@@ -56,6 +57,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
         if (data && data.length > 0) {
           const mapped = data.map((n: any) => ({
             id: n.id,
+            actorId: n.actorId,
             actor: {
               username: n.actor?.username || "System",
               image: (!n.actor?.username || n.actor?.username === "System") ? "/logo.png" : (n.actor?.image || null),
@@ -65,6 +67,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
                     : n.type === "COMMENT_LIKE" ? "liked your comment"
                     : n.type === "SYSTEM" ? ((n.message?.includes("Digital Product") || n.message?.includes("Ad Slot")) ? "Payment Successful" : "Role Upgraded")
                     : n.type === "PRODUCT_SALE" ? "purchased your product"
+                    : n.type === "FRIEND" ? (n.message?.includes("sent you") ? "Friend Request" : "Friend Accepted")
                     : "commented",
           message: n.type === "LIKE" ? "" : (n.message || ""),
           postId: n.entityId,
@@ -106,6 +109,7 @@ export const WebSocketProvider = ({ children }: { children: React.ReactNode }) =
           if (data.type === "NOTIFICATION") {
             const payload = data.payload;
             const newNotif: Notification = {
+              actorId: payload.actorId,
               actor: {
                 username: payload.actorUsername || "System",
                 image: (!payload.actorUsername || payload.actorUsername === "System") ? "/logo.png" : (payload.actorImage || null),

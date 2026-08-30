@@ -121,6 +121,14 @@ func (r *repository) GetSocialStatus(ctx context.Context, userID, otherID string
 		}
 		if pendingCount > 0 {
 			status = "pending"
+		} else {
+			var incomingCount int64
+			if err := r.db.WithContext(ctx).Model(&Friend{}).Where("user_id = ? AND friend_id = ?", otherID, userID).Count(&incomingCount).Error; err != nil {
+				return status, isFriend, isBlocked, err
+			}
+			if incomingCount > 0 {
+				status = "incoming_request"
+			}
 		}
 	}
 

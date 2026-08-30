@@ -23,6 +23,7 @@ type Service interface {
 	CreateProductSaleNotification(userID, actorID, postID string, amount int) error
 	CreateProductPaymentSuccessNotification(userID string, postID string) error
 	CreatePaymentPendingNotification(userID string) error
+	CreateFriendNotification(userID, actorID, action string) error
 	GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error)
 	MarkAsRead(notificationID string, userID string) error
 	MarkAllAsRead(userID string) error
@@ -510,6 +511,80 @@ func (s *service) CreateProductPaymentSuccessNotification(userID string, postID 
 }
 
 
+
+func (s *service) CreateFriendNotification(userID, actorID, action string) error {
+	if userID == actorID {
+		return nil
+	}
+	if err := checkNotificationRateLimit(userID, actorID, "FRIEND_ACTION"); err != nil {
+		return err
+	}
+
+	nType := "FRIEND"
+	isRead := false
+	
+	actorDetails, _ := s.repo.GetActorDetails(actorID)
+	actorUsername := "Someone"
+	var actorImage interface{} = nil
+	var actorRole interface{} = nil
+
+	if actorDetails != nil {
+		if username, ok := actorDetails["username"].(string); ok && username != "" {
+			actorUsername = username
+		}
+		actorImage = actorDetails["image"]
+		actorRole = actorDetails["role"]
+	}
+
+	var message string
+	var actionText string
+	if action == "request" {
+		message = actorUsername + " sent you a friend request."
+		actionText = "Friend Request"
+	} else if action == "accept" {
+		message = actorUsername + " accepted your friend request."
+		actionText = "Friend Accepted"
+	} else {
+		return nil
+	}
+
+	n := &Notification{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		ActorID:  actorID,
+		Type:     &nType,
+		Message:  &message,
+		IsRead:   &isRead,
+	}
+
+	err := s.repo.CreateOrUpdateNotification(n)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]interface{}{
+		"id":            n.ID,
+		"type":          nType,
+		"actorId":       actorID,
+		"message":       message,
+		"actionText":    actionText,
+		"actorUsername": actorUsername,
+		"actorImage":    actorImage,
+		"actorRole":    actorRole,
+		"isRead":        false,
+		"createdAt":     n.CreatedAt,
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	msgWs := &websocket.MessagePayload{
+		UserID:  userID,
+		Type:    "NOTIFICATION",
+		Payload: payloadBytes,
+	}
+	_ = websocket.PublishToRedis(msgWs)
+
+	return nil
+}
 
 func (s *service) GetNotificationsByUserID(userID string, limit, offset int) ([]Notification, error) {
 	return s.repo.GetNotificationsByUserID(userID, limit, offset)

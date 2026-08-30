@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"media-api/internal/modules/notification"
 	"media-api/internal/modules/post"
 	"media-api/internal/modules/user"
 )
@@ -22,12 +23,13 @@ type Service interface {
 }
 
 type service struct {
-	repo Repository
-	db   *gorm.DB
+	repo         Repository
+	db           *gorm.DB
+	notifService notification.Service
 }
 
-func NewService(repo Repository, db *gorm.DB) Service {
-	return &service{repo: repo, db: db}
+func NewService(repo Repository, db *gorm.DB, notifService notification.Service) Service {
+	return &service{repo: repo, db: db, notifService: notifService}
 }
 
 func (s *service) ToggleFriend(ctx context.Context, userID, otherID string) (string, bool, error) {
@@ -41,7 +43,16 @@ func (s *service) ToggleFriend(ctx context.Context, userID, otherID string) (str
 	if isBlocked {
 		return "", false, errors.New("cannot interact with this user")
 	}
-	return s.repo.ToggleFriend(ctx, userID, otherID)
+	
+	status, isFriend, err := s.repo.ToggleFriend(ctx, userID, otherID)
+	if err == nil {
+		if status == "pending" {
+			_ = s.notifService.CreateFriendNotification(otherID, userID, "request")
+		} else if status == "accepted" {
+			_ = s.notifService.CreateFriendNotification(otherID, userID, "accept")
+		}
+	}
+	return status, isFriend, err
 }
 
 func (s *service) GetSocialStatus(ctx context.Context, userID, otherID string) (string, bool, bool, error) {

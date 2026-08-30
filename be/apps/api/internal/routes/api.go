@@ -68,7 +68,7 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	monetizationHandler := monetization.NewHandler(monetizationService)
 
 	socialRepo := social.NewRepository(db)
-	socialService := social.NewService(socialRepo, db)
+	socialService := social.NewService(socialRepo, db, notificationService)
 	socialController := social.NewController(socialService)
 
 	// Health check route

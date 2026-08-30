@@ -122,6 +122,11 @@ export function NotificationDropdown() {
                           setTimeout(() => {
                             router.push(`/post/${notif.postId}`);
                           }, 100);
+                        } else if (notif.type === 'FRIEND' && notif.actor?.username) {
+                          setOpen(false);
+                          setTimeout(() => {
+                            router.push(`/${notif.actor?.username}`);
+                          }, 100);
                         }
                       }}
                       tabIndex={0}
@@ -159,6 +164,31 @@ export function NotificationDropdown() {
                           </div>
                           {notif.message && notif.type !== 'COMMENT' && (
                             <span className="text-sm text-muted-foreground line-clamp-3 mt-1">{notif.message}</span>
+                          )}
+                          
+                          {notif.actionText === 'Friend Request' && notif.actorId && (
+                            <div className="mt-2 flex">
+                              <button 
+                                className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold px-3 py-1 rounded transition shadow"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  try {
+                                    const { toggleFriendAction } = await import('@/actions/social.actions');
+                                    const { toast } = await import('sonner');
+                                    const res = await toggleFriendAction(notif.actorId!);
+                                    if (res.status === 'accepted') {
+                                      toast.success("Friend request accepted!");
+                                      handleDelete(e as any, notif.id); // Remove notification after accept
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                              >
+                                Accept Request
+                              </button>
+                            </div>
                           )}
                         </div>
                         <div className="flex-shrink-0 flex items-start">
