@@ -25,9 +25,6 @@ export const metadata: Metadata = {
   title: "Lost Media",
   description: "Discover, share, and archive lost media, rare files, and forgotten content.",
   keywords: "lost media, rare files, forgotten content, archive, community",
-  icons: {
-    icon: "/logo.png",
-  },
 };
 
 import { TooltipProvider } from "@/components/ui/tooltip";
