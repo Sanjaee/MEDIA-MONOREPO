@@ -176,6 +176,34 @@ services:
       - backend
     depends_on:
       - loki
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: media-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - backend
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: media-cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - backend
 
 networks:
   backend:
@@ -186,3 +214,4 @@ volumes:
   redis_prod_data:
   loki_data:
   grafana_data:
+  prometheus_data:
