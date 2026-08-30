@@ -53,6 +53,11 @@ const data = {
       url: "/admin/payment",
       icon: IconChartBar,
     },
+    {
+      title: "Reports",
+      url: "/admin/reports",
+      icon: IconReport,
+    },
   ],
   navClouds: [
     {

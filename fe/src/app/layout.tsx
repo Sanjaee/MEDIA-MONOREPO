@@ -22,8 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MediaApp",
-  description: "Social media app starter",
+  title: "Lost Media",
+  description: "Discover, share, and archive lost media, rare files, and forgotten content.",
+  keywords: "lost media, rare files, forgotten content, archive, community",
 };
 
 import { TooltipProvider } from "@/components/ui/tooltip";

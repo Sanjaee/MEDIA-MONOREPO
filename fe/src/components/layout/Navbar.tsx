@@ -16,7 +16,7 @@ export async function Navbar() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4 min-w-fit">
           <Link href="/" className="flex items-center space-x-2">
-            <Image src="/logo.png" alt="MediaApp" width={32} height={32} className="rounded-md object-contain" />
+            <Image src="/logo.png" alt="Lost Media" width={32} height={32} className="rounded-md object-contain" />
           </Link>
         </div>
         

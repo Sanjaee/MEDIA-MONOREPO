@@ -14,6 +14,7 @@ import (
 	"media-api/internal/modules/news"
 	"media-api/internal/modules/notification"
 	"media-api/internal/modules/post"
+	"media-api/internal/modules/social"
 	"media-api/internal/modules/user"
 )
 
@@ -53,6 +54,11 @@ func Migrate(db *gorm.DB) {
 		&interaction.Like{},
 		&interaction.Bookmark{},
 		&interaction.CommentLike{},
+
+		// Social
+		&social.Friend{},
+		&social.Block{},
+		&social.Report{},
 
 		// Notification
 		&notification.Notification{},

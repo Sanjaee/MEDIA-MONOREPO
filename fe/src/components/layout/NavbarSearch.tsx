@@ -46,7 +46,7 @@ export function NavbarSearch() {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-          placeholder="Search MediaApp"
+          placeholder="Search Lost Media..."
           className="bg-transparent border-none outline-none w-full text-sm placeholder:text-muted-foreground"
         />
       </form>

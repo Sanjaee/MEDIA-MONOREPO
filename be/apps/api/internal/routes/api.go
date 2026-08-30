@@ -16,6 +16,7 @@ import (
 	"media-api/internal/modules/monetization"
 	"media-api/internal/modules/notification"
 	"media-api/internal/modules/post"
+	"media-api/internal/modules/social"
 	"media-api/internal/storage"
 	"media-api/internal/websocket"
 )
@@ -66,6 +67,10 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 
 	monetizationHandler := monetization.NewHandler(monetizationService)
 
+	socialRepo := social.NewRepository(db)
+	socialService := social.NewService(socialRepo, db)
+	socialController := social.NewController(socialService)
+
 	// Health check route
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
@@ -92,6 +97,9 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 
 		// Interaction routes
 		interaction.RegisterRoutes(api, interactionController)
+
+		// Social routes
+		social.RegisterRoutes(api, socialController)
 
 		// Monetization routes
 		monetization.RegisterRoutes(api, monetizationHandler)

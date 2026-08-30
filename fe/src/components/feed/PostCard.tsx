@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { deletePostAction, toggleLikeAction, toggleBookmarkAction } from "@/actions/post.actions";
+import { getSocialStatusAction, toggleFriendAction, blockUserAction, unblockUserAction, reportPostAction, FriendStatus } from "@/actions/social.actions";
 import { useState, useEffect, useRef } from "react";
 import { CommentForm } from "@/components/comment/CommentForm";
 import { CommentFeed } from "@/components/comment/CommentFeed";
@@ -61,6 +62,16 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
   const [isBuying, setIsBuying] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [friendStatus, setFriendStatus] = useState<FriendStatus>("none");
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isFriendBusy, setIsFriendBusy] = useState(false);
+  const [showBlockAlert, setShowBlockAlert] = useState(false);
+  const [isBlockBusy, setIsBlockBusy] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDescription, setReportDescription] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
+
   const [isLiked, setIsLiked] = useState(post.hasLiked ?? false);
   const [likeCount, setLikeCount] = useState(post.stats?.likes ?? 0);
   const [isLiking, setIsLiking] = useState(false);
@@ -83,6 +94,88 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
     setViewCount(initialPost.stats?.views ?? 0);
     setPost(initialPost);
   }, [initialPost]);
+
+  const authorId = post.authorId || post.author?.id;
+
+  // Load friend/block status for this post's author
+  useEffect(() => {
+    if (session?.user && session.user.id !== authorId && authorId) {
+      getSocialStatusAction(authorId).then((s) => {
+        setFriendStatus(s.friendStatus);
+        setIsBlocked(s.isBlocked);
+      });
+    }
+  }, [session?.user, authorId]);
+
+  const handleToggleFriend = async () => {
+    if (!session?.user) {
+      toast.error("Please login to add friends");
+      return;
+    }
+    if (!authorId || isFriendBusy) return;
+    setIsFriendBusy(true);
+    try {
+      const res = await toggleFriendAction(authorId);
+      setFriendStatus(res.status);
+      if (res.status === "accepted") {
+        toast.success("You are now friends!");
+      } else if (res.status === "pending") {
+        toast.success("Friend request sent!");
+      } else {
+        toast.success("Friend removed");
+      }
+    } catch (e) {
+      toast.error((e instanceof Error && e.message) || "Failed to update friend status");
+    } finally {
+      setIsFriendBusy(false);
+    }
+  };
+
+  const handleBlock = async () => {
+    if (!authorId || isBlockBusy) return;
+    setIsBlockBusy(true);
+    try {
+      if (isBlocked) {
+        await unblockUserAction(authorId);
+        setIsBlocked(false);
+        toast.success("User unblocked");
+      } else {
+        await blockUserAction(authorId);
+        setIsBlocked(true);
+        setFriendStatus("none");
+        toast.success("User blocked");
+        queryClient.invalidateQueries({ queryKey: ['feed'] });
+      }
+    } catch (e) {
+      toast.error((e instanceof Error && e.message) || "Failed to update block status");
+    } finally {
+      setIsBlockBusy(false);
+      setShowBlockAlert(false);
+    }
+  };
+
+  const handleReport = async () => {
+    if (!session?.user) {
+      toast.error("Please login to report posts");
+      return;
+    }
+    if (!reportReason) {
+      toast.error("Please select a reason");
+      return;
+    }
+    setIsReporting(true);
+    try {
+      await reportPostAction(post.id, reportReason, reportDescription);
+      setShowReportDialog(false);
+      setReportReason("");
+      setReportDescription("");
+      toast.success("Report submitted. Thank you!");
+    } catch (e) {
+      toast.error((e instanceof Error && e.message) || "Failed to submit report");
+    } finally {
+      setIsReporting(false);
+    }
+  };
 
   const clickCountRef = useRef(0);
   const bookmarkClickCountRef = useRef(0);
@@ -487,16 +580,23 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
                 </>
               ) : (
                 <>
-                  <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => toast.info("Add Friend feature coming soon!")}>
+                  <DropdownMenuItem className="cursor-pointer gap-2" onClick={handleToggleFriend} disabled={isFriendBusy}>
                     <UserPlus size={16} />
-                    <span>Add Friend</span>
+                    <span>{friendStatus === "accepted" ? "Unfriend" : friendStatus === "pending" ? "Friend Requested" : "Add Friend"}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer text-yellow-600 focus:text-yellow-600 focus:bg-yellow-500/10 gap-2" onClick={() => toast.info("Block feature coming soon!")}>
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-yellow-600 focus:text-yellow-600 focus:bg-yellow-500/10 gap-2" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowBlockAlert(true);
+                    }}
+                    disabled={isBlockBusy}
+                  >
                     <Ban size={16} />
-                    <span>Block @{post.author?.username}</span>
+                    <span>{isBlocked ? `Unblock @${post.author?.username}` : `Block @${post.author?.username}`}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 gap-2" onClick={() => toast.info("Report feature coming soon!")}>
+                  <DropdownMenuItem className="cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 gap-2" onClick={() => setShowReportDialog(true)}>
                     <Flag size={16} />
                     <span>Report</span>
                   </DropdownMenuItem>
@@ -709,6 +809,95 @@ export function PostCard({ post: initialPost, priority = false }: { post: PostWi
             <Button size="icon" onClick={copyToClipboard} className="px-3 shrink-0">
               <span className="sr-only">Copy</span>
               <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Alert Dialog */}
+      <AlertDialog open={showBlockAlert} onOpenChange={setShowBlockAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isBlocked ? "Unblock this user?" : `Block @${post.author?.username}?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBlocked
+                ? "They will be able to see your posts and interact with you again."
+                : "You will no longer see their posts or interactions. They won't be notified, but they won't be able to view your posts either."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlockBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleBlock();
+              }}
+              className={isBlocked ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-red-500 hover:bg-red-600 focus:ring-red-500"}
+              disabled={isBlockBusy}
+            >
+              {isBlockBusy ? "Processing..." : isBlocked ? "Unblock" : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report Dialog */}
+      <Dialog open={showReportDialog} onOpenChange={(open) => { if (!isReporting) setShowReportDialog(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+            <DialogDescription>
+              Report this post for review by our moderators. Please provide as much detail as possible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 mt-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: "spam", label: "Spam" },
+                  { value: "harassment", label: "Harassment" },
+                  { value: "inappropriate_content", label: "Inappropriate Content" },
+                  { value: "scam", label: "Scam or Fraud" },
+                  { value: "misleading_info", label: "Misleading Info" },
+                  { value: "other", label: "Other" },
+                ].map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setReportReason(r.value)}
+                    className={`px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
+                      reportReason === r.value
+                        ? "border-red-500 bg-red-500/10 text-red-600"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Additional details
+              </label>
+              <textarea
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+                rows={3}
+                placeholder="Tell us more about the issue..."
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setShowReportDialog(false)} disabled={isReporting}>
+              Cancel
+            </Button>
+            <Button onClick={handleReport} disabled={isReporting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isReporting ? "Submitting..." : "Submit Report"}
             </Button>
           </div>
         </DialogContent>

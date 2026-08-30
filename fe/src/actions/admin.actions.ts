@@ -142,3 +142,82 @@ export async function getAdminTransactionsAction(): Promise<AdminTransactionRow[
   const data = await res.json();
   return data || [];
 }
+
+export type AdminReportRow = {
+  id: string;
+  reason: string;
+  description?: string | null;
+  status: string;
+  adminNote?: string | null;
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  reporter: {
+    id: string;
+    name?: string | null;
+    username?: string | null;
+    email?: string;
+    image?: string | null;
+    avatar_url?: string | null;
+  };
+  post: {
+    id: string;
+    content?: string | null;
+    authorId: string;
+    createdAt?: string;
+    author?: {
+      id: string;
+      name?: string | null;
+      username?: string | null;
+      image?: string | null;
+    } | null;
+  };
+};
+
+export async function getAdminReportsAction(status: string = "all"): Promise<AdminReportRow[]> {
+  await checkAdmin();
+  const session = await auth();
+  const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  
+  const query = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${backendUrl}/admin/reports${query}`, {
+    headers: {
+      Authorization: `Bearer ${(session as { accessToken?: string } | null)?.accessToken}`,
+    },
+    cache: "no-store",
+  });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to fetch admin reports: ${res.statusText}. ${errorText}`);
+  }
+  
+  const data = await res.json();
+  return data || [];
+}
+
+export async function updateReportStatusAction(
+  reportId: string,
+  status: string,
+  adminNote?: string
+): Promise<{ success: boolean }> {
+  await checkAdmin();
+  const session = await auth();
+  const backendUrl = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+  
+  const res = await fetch(`${backendUrl}/admin/reports/${reportId}/status`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${(session as { accessToken?: string } | null)?.accessToken}`,
+    },
+    body: JSON.stringify({ status, admin_note: adminNote || "" }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to update report status: ${errorText}`);
+  }
+
+  return { success: true };
+}

@@ -135,6 +135,7 @@ func (r *repository) GetMediaFeed(userID string, cursor string, limit int) ([]Po
 
 	if userID != "" {
 		query = query.Select("posts.*, EXISTS(SELECT 1 FROM likes WHERE likes.post_id = posts.id AND likes.user_id = ?) as has_liked, EXISTS(SELECT 1 FROM bookmarks WHERE bookmarks.post_id = posts.id AND bookmarks.user_id = ?) as has_bookmarked, EXISTS(SELECT 1 FROM product_purchases WHERE product_purchases.post_id = posts.id AND product_purchases.user_id = ?) as has_bought", userID, userID, userID)
+		query = query.Where("posts.author_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = ?) AND posts.author_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = ?)", userID, userID)
 	}
 
 	if cursor != "" {
@@ -178,13 +179,15 @@ func applyVisibility(query *gorm.DB, userID string) *gorm.DB {
 	}
 	
 	visibilityCondition := `
-		(visibility = 'public') OR
-		(visibility = 'private' AND author_id = ?) OR
-		(visibility = 'followers' AND author_id IN (
+		((visibility = 'public')
+		OR (visibility = 'private' AND author_id = ?)
+		OR (visibility = 'followers' AND author_id IN (
 			SELECT following_id FROM follows WHERE follower_id = ?
-		))
+		)))
+		AND author_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id = ?)
+		AND author_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id = ?)
 	`
-	return query.Where(visibilityCondition, userID, userID)
+	return query.Where(visibilityCondition, userID, userID, userID, userID)
 }
 
 func (r *repository) RecordView(ctx context.Context, userID, postID string) (bool, error) {
