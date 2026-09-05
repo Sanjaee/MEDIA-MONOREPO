@@ -43,6 +43,7 @@ nginx/logs/
 
 # Graphify
 graphify-out/
+GRAPH_REPORT.md
 
 # Deployment Artifacts
 deploy.tar
