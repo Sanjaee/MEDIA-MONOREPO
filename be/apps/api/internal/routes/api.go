@@ -79,8 +79,8 @@ func SetupRouter(db *gorm.DB, hub *websocket.Hub, store storage.Storage) *gin.En
 	})
 
 	api := r.Group("/api")
-	// Global API Rate Limit: 100 requests per minute
-	api.Use(middleware.RateLimitMiddleware(cache.RDB, 100, time.Minute))
+	// Global API Rate Limit: 1000 requests per minute
+	api.Use(middleware.RateLimitMiddleware(cache.RDB, 1000, time.Minute))
 	api.Use(middleware.OptionalAuth(authService))
 	{
 		api.GET("/ping", func(c *gin.Context) {

@@ -14,8 +14,14 @@ func RateLimitMiddleware(rdb *redis.Client, maxRequests int, window time.Duratio
 	return func(c *gin.Context) {
 		userID := c.GetString("userID")
 		if userID == "" {
-			// If not authenticated, limit by IP
-			userID = c.ClientIP()
+			// If not authenticated, extract client IP (preferring proxy headers)
+			if clientIP := c.GetHeader("X-Forwarded-For"); clientIP != "" {
+				userID = clientIP
+			} else if clientIP := c.GetHeader("X-Real-IP"); clientIP != "" {
+				userID = clientIP
+			} else {
+				userID = c.ClientIP()
+			}
 		}
 
 		key := fmt.Sprintf("rate_limit_v2:%s:%s", c.FullPath(), userID)
@@ -25,6 +31,10 @@ func RateLimitMiddleware(rdb *redis.Client, maxRequests int, window time.Duratio
 			if err == nil {
 				if count == 1 {
 					rdb.Expire(context.Background(), key, window)
+				} else {
+					if ttl, err := rdb.TTL(context.Background(), key).Result(); err == nil && ttl < 0 {
+						rdb.Expire(context.Background(), key, window)
+					}
 				}
 				if count > int64(maxRequests) {
 					c.JSON(http.StatusTooManyRequests, gin.H{
