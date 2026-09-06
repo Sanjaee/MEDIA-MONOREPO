@@ -8,19 +8,23 @@ export async function fetchFromGo(endpoint: string) {
   const session = await auth();
   const token = (session as any)?.accessToken; // In a real app, use a proper session token or JWT
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-    },
-    cache: "no-store"
-  });
+  try {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
+      cache: "no-store"
+    });
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch from Go API: ${res.statusText}`);
+    if (!res.ok) {
+      return { posts: [] };
+    }
+
+    return res.json();
+  } catch {
+    return { posts: [] };
   }
-
-  return res.json();
 }
 
 export async function getLatestFeedAction({ cursor, limit = 10 }: { cursor?: { createdAt: string; id: string } | null; limit?: number }) {
