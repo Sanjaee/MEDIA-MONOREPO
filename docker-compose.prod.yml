@@ -1,25 +1,4 @@
 services:
-  nginx:
-    image: nginx:alpine
-    container_name: media-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/cert.pem:/etc/nginx/cert.pem:ro
-      - ./nginx/key.pem:/etc/nginx/key.pem:ro
-    networks:
-      - backend
-    depends_on:
-      - nextjs
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   nextjs:
     build:
       context: ./fe
@@ -28,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - BACKEND_API_URL=http://api:8080/api
+      - BACKEND_API_URL=http://media-api:8080/api
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -59,8 +38,8 @@ services:
     container_name: media-api
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@media-postgres-prod:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@media-redis-prod:6379
       - PORT=8080
       - JWT_SECRET=${JWT_SECRET}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
